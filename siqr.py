@@ -30,3 +30,4 @@ plt.xlabel('Дни')
 plt.ylabel('Доля населения')
 plt.legend()
 plt.show()
+
