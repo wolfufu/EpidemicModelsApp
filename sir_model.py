@@ -10,7 +10,6 @@ def sir_model(y, t, beta, gamma):
     return [dSdt, dIdt, dRdt]
 
 def main():
-    # Параметры модели
     beta = 0.3   # скорость передачи
     gamma = 0.1  # скорость выздоровления
     S0 = 0.99    # начальное количество восприимчивых
