@@ -27,6 +27,7 @@ def main():
     plt.plot(t, I, 'r', label='Инфицированные')
     plt.xlabel('Дни')
     plt.ylabel('Доля населения')
+    plt.title('SI-модель')
     plt.legend()
     plt.show()
 
