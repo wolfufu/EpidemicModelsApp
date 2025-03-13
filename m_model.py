@@ -32,10 +32,10 @@ sol = solve_ivp(multi_stage_model, t_span, y0, args=(beta, k, gamma), t_eval=t_e
 
 # Визуализация результатов
 plt.figure(figsize=(10, 5))
-plt.plot(sol.t, sol.y[0], label='Восприимчивые)', color='blue')
+plt.plot(sol.t, sol.y[0], label='Восприимчивые', color='blue')
 for j in range(len(I0)):
     plt.plot(sol.t, sol.y[j+1], label=f'I{j+1} (Стадия {j+1})', linestyle='dashed')
-plt.plot(sol.t, sol.y[-1], label='Выздоровевшие)', color='green')
+plt.plot(sol.t, sol.y[-1], label='Выздоровевшие', color='green')
 plt.xlabel('Время')
 plt.ylabel('Доля популяции')
 plt.title('Multi-stage (M) модель распространения инфекции')
