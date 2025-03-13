@@ -1,33 +1,48 @@
 import numpy as np
-import matplotlib.pyplot as plt
 from scipy.integrate import odeint
+import matplotlib.pyplot as plt
 
-def SIQR_model(y, t, beta, gamma, delta):
+# Система уравнений SIQR-модели
+def siqr_model(y, t, beta, gamma, delta, mu):
     S, I, Q, R = y
     dSdt = -beta * S * I
-    dIdt = beta * S * I - delta * I - gamma * I
-    dQdt = delta * I - gamma * Q
-    dRdt = gamma * (I + Q)
+    dIdt = beta * S * I - gamma * I - delta * I
+    dQdt = delta * I - mu * Q
+    dRdt = gamma * I + mu * Q
     return [dSdt, dIdt, dQdt, dRdt]
 
-def solve_SIQR(S0, I0, Q0, R0, beta, gamma, delta, days):
-    y0 = [S0, I0, Q0, R0]
-    t = np.linspace(0, days, days)
-    sol = odeint(SIQR_model, y0, t, args=(beta, gamma, delta))
-    return t, sol.T
+# Параметры модели
+beta = 0.3    # Коэффициент заражения
+gamma = 0.1   # Коэффициент выздоровления инфицированных
+delta = 0.05  # Коэффициент изоляции инфицированных
+mu = 0.05     # Коэффициент выздоровления изолированных
 
-S0, I0, Q0, R0 = 0.99, 0.01, 0, 0
-beta, gamma, delta = 0.3, 0.1, 0.05
-days = 160
+# Начальные условия (начальное количество людей в каждой группе)
+S0 = 0.99  # Восприимчивые (99%)
+I0 = 0.01  # Инфицированные (1%)
+Q0 = 0.0   # Изолированные (карантин)
+R0 = 0.0   # Выздоровевшие
+N = S0 + I0 + Q0 + R0  # Общая популяция (нормализовано)
 
-t, (S, I, Q, R) = solve_SIQR(S0, I0, Q0, R0, beta, gamma, delta, days)
+# Вектор начальных условий
+y0 = [S0, I0, Q0, R0]
 
-plt.plot(t, S, label='Восприимчивые')
-plt.plot(t, I, label='Инфицированные')
-plt.plot(t, Q, label='Карантин')
-plt.plot(t, R, label='Выздоровевшие')
+# Временной интервал для моделирования (например, 160 дней)
+t = np.linspace(0, 160, 160)
+
+# Решение системы уравнений
+solution = odeint(siqr_model, y0, t, args=(beta, gamma, delta, mu))
+S, I, Q, R = solution.T
+
+# Построение графиков
+plt.figure(figsize=(10,6))
+plt.plot(t, S, 'b', label='Восприимчивые')
+plt.plot(t, I, 'r', label='Инфицированные')
+plt.plot(t, Q, 'g', label='Изолированные')
+plt.plot(t, R, 'k', label='Выздоровевшие')
 plt.xlabel('Дни')
 plt.ylabel('Доля населения')
+plt.title('SIQR-модель')
 plt.legend()
+plt.grid(True)
 plt.show()
-

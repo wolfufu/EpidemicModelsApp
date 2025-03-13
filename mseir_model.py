@@ -2,45 +2,52 @@ import numpy as np
 from scipy.integrate import odeint
 import matplotlib.pyplot as plt
 
-def mseir_model(y, t, beta, sigma, gamma, mu):
+# Функция для вычисления правых частей уравнений системы MSEIR
+def mseir_model(y, t, mu, delta, beta, sigma, gamma):
     M, S, E, I, R = y
-    dMdt = -mu * M
-    dSdt = mu * M - beta * S * I
-    dEdt = beta * S * I - sigma * E
-    dIdt = sigma * E - gamma * I
-    dRdt = gamma * I
+    N = M + S + E + I + R  # Общее население
+
+    # Дифференциальные уравнения
+    dMdt = mu * N - delta * M - mu * M
+    dSdt = delta * M - beta * S * I / N - mu * S
+    dEdt = beta * S * I / N - sigma * E - mu * E
+    dIdt = sigma * E - gamma * I - mu * I
+    dRdt = gamma * I - mu * R
+
     return [dMdt, dSdt, dEdt, dIdt, dRdt]
 
-def main():
-    # Параметры модели
-    beta = 0.3   # скорость передачи
-    sigma = 1/5.1 # инкубационный период
-    gamma = 0.1  # скорость выздоровления
-    mu = 0.05    # скорость вакцинации
-    M0 = 0.01    # начальное количество вакцинированных
-    S0 = 0.98    # начальное количество восприимчивых
-    E0 = 0.0     # начальное количество латентных
-    I0 = 0.01    # начальное количество инфицированных
-    R0 = 0.0     # начальное количество выздоровевших
-    y0 = [M0, S0, E0, I0, R0]
+# Параметры модели
+mu = 0.01      # Естественная смертность (и рождаемость, если популяция стабильна)
+delta = 0.1    # Скорость потери материнских антител
+beta = 0.5     # Коэффициент передачи инфекции
+sigma = 1/5    # Инкубационный период (скорость перехода E -> I)
+gamma = 1/7    # Скорость выздоровления (скорость перехода I -> R)
 
-    # Время моделирования (дни)
-    t = np.linspace(0, 160, 160)
+# Начальные условия
+M0 = 0.1       # Доля людей с материнскими антителами
+S0 = 0.8       # Доля восприимчивых
+E0 = 0.01      # Доля инфицированных, но не заразных
+I0 = 0.05      # Доля инфицированных
+R0 = 0.04      # Доля выздоровевших
+y0 = [M0, S0, E0, I0, R0]  # Начальные условия для всех групп
 
-    # Решение системы дифференциальных уравнений
-    sol = odeint(mseir_model, y0, t, args=(beta, sigma, gamma, mu))
+# Время моделирования (в днях)
+t = np.linspace(0, 160, 160)  # 160 дней
 
-    # Построение графика
-    M, S, E, I, R = sol.T
-    plt.plot(t, S, 'b', label='Восприимчивые')
-    plt.plot(t, E, 'y', label='Латентные')
-    plt.plot(t, I, 'r', label='Инфицированные')
-    plt.plot(t, R, 'g', label='Выздоровевшие')
-    plt.plot(t, M, 'm', label='Вакцинированные')
-    plt.xlabel('Дни')
-    plt.ylabel('Доля населения')
-    plt.legend()
-    plt.show()
+# Решение системы дифференциальных уравнений
+solution = odeint(mseir_model, y0, t, args=(mu, delta, beta, sigma, gamma))
+M, S, E, I, R = solution.T  # Транспонирование для разделения переменных
 
-if __name__ == '__main__':
-    main()
+# Построение графиков
+plt.figure(figsize=(10, 6))
+plt.plot(t, M, label='Материнский иммунитет', color='blue')
+plt.plot(t, S, label='Восприимчивые', color='green')
+plt.plot(t, E, label='Инкубационные', color='orange')
+plt.plot(t, I, label='Инфицированные', color='red')
+plt.plot(t, R, label='Выздоровевшие', color='purple')
+plt.xlabel('Время (дни)')
+plt.ylabel('Доля населения')
+plt.title('MSEIR')
+plt.legend()
+plt.grid(True)
+plt.show()
