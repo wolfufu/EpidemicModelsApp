@@ -1,33 +1,44 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.integrate import odeint
+from scipy.integrate import solve_ivp
 
-def M_model(y, t, beta, gamma, nu):
-    S, I, R, M = y
-    dSdt = -beta * S * I + nu * R
-    dIdt = beta * S * I - gamma * I
-    dRdt = gamma * I - nu * R
-    dMdt = -nu * M
-    return [dSdt, dIdt, dRdt, dMdt]
+def multi_stage_model(t, y, beta, k, gamma):
+    S, *I, R = y
+    dS_dt = -beta * S * I[0] + gamma * R
+    dI_dt = [beta * S * I[0] - k[0] * I[0]]
+    for j in range(1, len(I)):
+        dI_dt.append(k[j-1] * I[j-1] - k[j] * I[j])
+    dR_dt = k[-1] * I[-1] - gamma * R
+    return [dS_dt] + dI_dt + [dR_dt]
 
-def solve_M_model(S0, I0, R0, M0, beta, gamma, nu, days):
-    y0 = [S0, I0, R0, M0]
-    t = np.linspace(0, days, days)
-    sol = odeint(M_model, y0, t, args=(beta, gamma, nu))
-    return t, sol.T
+# Параметры модели
+beta = 0.5   # коэффициент заражения
+k = [0.3, 0.2, 0.1]  # скорости переходов между стадиями инфекции
+gamma = 0.05  # скорость потери иммунитета
 
-S0, I0, R0, M0 = 0.99, 0.01, 0, 0
-beta, gamma, nu = 0.3, 0.1, 0.01
-days = 160
+# Начальные условия
+S0 = 0.9  # 90% восприимчивы
+I0 = [0.1, 0.0, 0.0]  # Начинаем с 10% инфицированных на первой стадии
+R0 = 0.0  # 0% выздоровевших
 
-t, (S, I, R, M) = solve_M_model(S0, I0, R0, M0, beta, gamma, nu, days)
+y0 = [S0] + I0 + [R0]
 
-plt.plot(t, S, label='Восприимчивые')
-plt.plot(t, I, label='Инфицированные')
-plt.plot(t, R, label='Выздоровевшие')
-plt.plot(t, M, label='Вакцинированные')
-plt.xlabel('Дни')
-plt.ylabel('Доля населения')
-plt.title('M-модель (Multi-stage)')
+# Временной интервал моделирования
+t_span = (0, 100)
+t_eval = np.linspace(*t_span, 1000)
+
+# Решение системы дифференциальных уравнений
+sol = solve_ivp(multi_stage_model, t_span, y0, args=(beta, k, gamma), t_eval=t_eval)
+
+# Визуализация результатов
+plt.figure(figsize=(10, 5))
+plt.plot(sol.t, sol.y[0], label='Восприимчивые)', color='blue')
+for j in range(len(I0)):
+    plt.plot(sol.t, sol.y[j+1], label=f'I{j+1} (Стадия {j+1})', linestyle='dashed')
+plt.plot(sol.t, sol.y[-1], label='Выздоровевшие)', color='green')
+plt.xlabel('Время')
+plt.ylabel('Доля популяции')
+plt.title('Multi-stage (M) модель распространения инфекции')
 plt.legend()
+plt.grid()
 plt.show()
