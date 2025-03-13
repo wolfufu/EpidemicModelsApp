@@ -23,6 +23,8 @@ def main():
     # Решение системы дифференциальных уравнений
     sol = odeint(sir_model, y0, t, args=(beta, gamma))
 
+    print(sol)
+
     # Построение графика
     S, I, R = sol.T
     plt.plot(t, S, 'b', label='Восприимчивые')
