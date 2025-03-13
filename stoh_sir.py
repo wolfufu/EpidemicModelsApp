@@ -30,6 +30,7 @@ def plot_stochastic(S_history, I_history, R_history):
     plt.plot(t, R_history, label='Выздоровевшие')
     plt.xlabel('Дни')
     plt.ylabel('Число людей')
+    plt.title('Стохастическая модель')
     plt.legend()
     plt.show()
 

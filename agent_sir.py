@@ -35,6 +35,7 @@ def plot_agent_based(S_history, I_history, R_history):
     plt.plot(t, S_history, label='Восприимчивые')
     plt.plot(t, I_history, label='Инфицированные')
     plt.plot(t, R_history, label='Выздоровевшие')
+    plt.title('Agent-based модель')
     plt.legend()
     plt.show()
 

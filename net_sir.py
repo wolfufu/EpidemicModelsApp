@@ -34,6 +34,7 @@ def plot_network_SIR(S_history, I_history, R_history):
     plt.plot(t, R_history, label='Выздоровевшие')
     plt.xlabel('Дни')
     plt.ylabel('Число людей')
+    plt.title('Сетевая модель')
     plt.legend()
     plt.show()
 

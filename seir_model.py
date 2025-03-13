@@ -35,6 +35,7 @@ def main():
     plt.plot(t, R, 'g', label='Выздоровевшие')
     plt.xlabel('Дни')
     plt.ylabel('Доля населения')
+    plt.title('SEIR-модель')
     plt.legend()
     plt.show()
 
