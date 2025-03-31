@@ -85,12 +85,13 @@ class EpidemicModelsApp:
         
         self.selected_models = []
         self.model_widgets = []
+        self.model_vars = []
         
         self.create_left_panel()
         self.create_right_panel()
         
-        self.model_vars[0].set("SIR")
-        self.model_selected(0)
+        # Добавляем первую модель по умолчанию
+        self.add_model_field()
         
     def get_model_parameters(self, model_name):
         """Возвращает параметры для конкретной модели"""
@@ -178,32 +179,22 @@ class EpidemicModelsApp:
 
     def create_left_panel(self):
         """Создает левую панель с выбором моделей и параметрами"""
-        left_frame = ttk.Frame(self.root, padding=10, width=400)  # Устанавливаем ширину здесь
+        left_frame = ttk.Frame(self.root, padding=10, width=400)
         left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=False, padx=5, pady=5)
-        left_frame.pack_propagate(False)  # Запрещаем изменение размера фрейма содержимым
+        left_frame.pack_propagate(False)
             
         # Выбор моделей
         model_frame = ttk.LabelFrame(left_frame, text="Выбор моделей (до 4)", padding=10)
         model_frame.pack(fill=tk.X, pady=5)
         
-        self.model_vars = []
-        for i in range(4):
-            frame = ttk.Frame(model_frame)
-            frame.pack(fill=tk.X, pady=2)
-            
-            var = tk.StringVar()
-            cb = ttk.Combobox(frame, textvariable=var, 
-                            values=[""] + list(self.available_models.keys()),
-                            state="readonly")
-            cb.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
-            cb.bind("<<ComboboxSelected>>", lambda e, idx=i: self.model_selected(idx))
-            
-            btn = ttk.Button(frame, text="×", width=2, 
-                           command=lambda idx=i: self.remove_model(idx))
-            btn.pack(side=tk.RIGHT)
-            
-            self.model_vars.append(var)
-            self.model_widgets.append({"combobox": cb, "button": btn})
+        # Контейнер для полей выбора моделей
+        self.models_container = ttk.Frame(model_frame)
+        self.models_container.pack(fill=tk.X)
+        
+        # Кнопка добавления новой модели
+        self.add_button = ttk.Button(model_frame, text="+ Добавить модель", 
+                                   command=self.add_model_field, state=tk.NORMAL)
+        self.add_button.pack(pady=5)
         
         # Диапазон дат
         date_frame = ttk.LabelFrame(left_frame, text="Диапазон дат", padding=10)
@@ -246,7 +237,7 @@ class EpidemicModelsApp:
         right_frame = ttk.Frame(self.root)
         right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=5, pady=5)
         
-        # Графики будут располагаться в сетке 2x2
+        # Создаем 4 графических фрейма, но будем показывать только нужные
         self.plot_frames = []
         self.figs = []
         self.axes = []
@@ -270,31 +261,97 @@ class EpidemicModelsApp:
             self.figs.append(fig)
             self.axes.append(ax)
             self.canvases.append(canvas)
-    
-    def model_selected(self, index):
-        """Обработчик выбора модели"""
-        model_name = self.model_vars[index].get()
-        if model_name:
-            # Удаляем модель из других комбобоксов, если она уже выбрана
-            for i, var in enumerate(self.model_vars):
-                if i != index and var.get() == model_name:
-                    var.set("")
-                    if model_name in self.selected_models:
-                        self.selected_models.remove(model_name)
-                        self.update_params_notebook()
             
-            if model_name not in self.selected_models:
-                self.selected_models.append(model_name)
-                self.update_params_notebook()
+            # Сначала скрываем все графики
+            frame.grid_remove()
     
-    def remove_model(self, index):
-        """Удаляет выбранную модель"""
-        model_name = self.model_vars[index].get()
-        if model_name:
-            self.model_vars[index].set("")
-            if model_name in self.selected_models:
-                self.selected_models.remove(model_name)
-                self.update_params_notebook()
+    def add_model_field(self):
+        """Добавляет новое поле выбора модели"""
+        if len(self.model_widgets) >= 4:
+            messagebox.showwarning("Предупреждение", "Можно добавить не более 4 моделей")
+            self.add_button.config(state=tk.DISABLED)
+            return
+        
+        frame = ttk.Frame(self.models_container)
+        frame.pack(fill=tk.X, pady=2)
+        
+        var = tk.StringVar()
+        cb = ttk.Combobox(frame, textvariable=var, 
+                        values=[""] + list(self.available_models.keys()),
+                        state="readonly")
+        cb.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+        
+        btn = ttk.Button(frame, text="×", width=2, 
+                       command=lambda: self.remove_model_field(frame, var))
+        btn.pack(side=tk.RIGHT)
+        
+        # Привязываем обработчик выбора модели
+        cb.bind("<<ComboboxSelected>>", lambda e, v=var: self.model_selected(v))
+        
+        self.model_vars.append(var)
+        self.model_widgets.append({"frame": frame, "combobox": cb, "button": btn})
+        
+        # Обновляем состояние кнопки добавления
+        if len(self.model_widgets) >= 4:
+            self.add_button.config(state=tk.DISABLED)
+        else:
+            self.add_button.config(state=tk.NORMAL)
+    
+    def remove_model_field(self, frame, var):
+        """Удаляет поле выбора модели"""
+        model_name = var.get()
+        if model_name in self.selected_models:
+            self.selected_models.remove(model_name)
+            self.update_params_notebook()
+        
+        # Удаляем из списков
+        for i, widget in enumerate(self.model_widgets):
+            if widget["frame"] == frame:
+                self.model_widgets.pop(i)
+                self.model_vars.pop(i)
+                break
+        
+        # Удаляем фрейм
+        frame.destroy()
+        
+        # Обновляем состояние кнопки добавления
+        if len(self.model_widgets) < 4:
+            self.add_button.config(state=tk.NORMAL)
+        
+        # Обновляем графики
+        self.update_plots_visibility()
+    
+    def model_selected(self, var):
+        """Обработчик выбора модели"""
+        model_name = var.get()
+        if not model_name:
+            return
+        
+        # Проверяем, не выбрана ли эта модель уже в другом поле
+        for v in self.model_vars:
+            if v != var and v.get() == model_name:
+                messagebox.showwarning("Предупреждение", "Эта модель уже выбрана")
+                var.set("")
+                return
+        
+        if model_name not in self.selected_models:
+            self.selected_models.append(model_name)
+            self.update_params_notebook()
+        
+        # Обновляем видимость графиков
+        self.update_plots_visibility()
+    
+    def update_plots_visibility(self):
+        """Обновляет видимость графиков в зависимости от количества выбранных моделей"""
+        num_models = len(self.selected_models)
+        
+        for i in range(4):
+            if i < num_models:
+                self.plot_frames[i].grid()
+            else:
+                self.plot_frames[i].grid_remove()
+                self.axes[i].clear()
+                self.canvases[i].draw()
     
     def update_params_notebook(self):
         """Обновляет блокнот с параметрами для выбранных моделей"""
