@@ -38,7 +38,7 @@ for j in range(len(I0)):
 plt.plot(sol.t, sol.y[-1], label='Выздоровевшие', color='green')
 plt.xlabel('Время')
 plt.ylabel('Доля популяции')
-plt.title('Multi-stage (M) модель распространения инфекции')
+plt.title('Multi-stage (M-модель)')
 plt.legend()
 plt.grid()
 plt.show()
