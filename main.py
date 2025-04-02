@@ -494,7 +494,26 @@ class EpidemicModelsApp:
             dt = t[i] - t[i-1]
             dy = model_func(y[i-1], t[i-1], *args)
             y[i] = y[i-1] + dy * dt
+        print(y.T)
+        return y.T
+    
+    def runge_kutta_4(self, model_func, y0, t, args):
+        """Реализация метода Рунге-Кутты 4-го порядка для решения СДУ"""
+        y = np.zeros((len(t), len(y0)))
+        y[0] = y0
         
+        for i in range(1, len(t)):
+            dt = t[i] - t[i-1]
+            h = dt
+            
+            k1 = model_func(y[i-1], t[i-1], *args)
+            k2 = model_func(y[i-1] + 0.5*h*k1, t[i-1] + 0.5*h, *args)
+            k3 = model_func(y[i-1] + 0.5*h*k2, t[i-1] + 0.5*h, *args)
+            k4 = model_func(y[i-1] + h*k3, t[i-1] + h, *args)
+            
+            y[i] = y[i-1] + (h/6.0)*(k1 + 2*k2 + 2*k3 + k4)
+        
+        print(y)
         return y.T
     
     def run_models(self):
@@ -552,7 +571,7 @@ class EpidemicModelsApp:
     def run_si_model(self, t, params, initials, plot_index):
         """Запускает SI модель на указанном графике"""
         y0 = [initials["S0"], initials["I0"]]
-        solution = self.euler_method(self.models_obj.si_model, y0, t, (params["beta"],))
+        solution = self.runge_kutta_4(self.models_obj.si_model, y0, t, (params["beta"],))
         S, I = solution
         
         ax = self.axes[plot_index]
@@ -564,7 +583,7 @@ class EpidemicModelsApp:
     def run_sir_model(self, t, params, initials, plot_index):
         """Запускает SIR модель на указанном графике"""
         y0 = [initials["S0"], initials["I0"], initials["R0"]]
-        solution = self.euler_method(self.models_obj.sir_model, y0, t, (params["beta"], params["gamma"]))
+        solution = self.runge_kutta_4(self.models_obj.sir_model, y0, t, (params["beta"], params["gamma"]))
         S, I, R = solution
         
         ax = self.axes[plot_index]
@@ -577,7 +596,7 @@ class EpidemicModelsApp:
     def run_sirs_model(self, t, params, initials, plot_index):
         """Запускает SIRS модель на указанном графике"""
         y0 = [initials["S0"], initials["I0"], initials["R0"]]
-        solution = self.euler_method(self.models_obj.sirs_model, y0, t, (params["beta"], params["gamma"], params["delta"]))
+        solution = self.runge_kutta_4(self.models_obj.sirs_model, y0, t, (params["beta"], params["gamma"], params["delta"]))
         S, I, R = solution
         
         ax = self.axes[plot_index]
@@ -590,7 +609,7 @@ class EpidemicModelsApp:
     def run_seir_model(self, t, params, initials, plot_index):
         """Запускает SEIR модель на указанном графике"""
         y0 = [initials["S0"], initials["E0"], initials["I0"], initials["R0"]]
-        solution = self.euler_method(self.models_obj.seir_model, y0, t, (params["beta"], params["sigma"], params["gamma"]))
+        solution = self.runge_kutta_4(self.models_obj.seir_model, y0, t, (params["beta"], params["sigma"], params["gamma"]))
         S, E, I, R = solution
         
         ax = self.axes[plot_index]
@@ -604,7 +623,7 @@ class EpidemicModelsApp:
     def run_mseir_model(self, t, params, initials, plot_index):
         """Запускает MSEIR модель на указанном графике"""
         y0 = [initials["M0"], initials["S0"], initials["E0"], initials["I0"], initials["R0"]]
-        solution = self.euler_method(self.models_obj.mseir_model, y0, t, 
+        solution = self.runge_kutta_4(self.models_obj.mseir_model, y0, t, 
                                    (params["mu"], params["delta"], params["beta"], params["sigma"], params["gamma"]))
         M, S, E, I, R = solution
         
@@ -620,7 +639,7 @@ class EpidemicModelsApp:
     def run_siqr_model(self, t, params, initials, plot_index):
         """Запускает SIQR модель на указанном графике"""
         y0 = [initials["S0"], initials["I0"], initials["Q0"], initials["R0"]]
-        solution = self.euler_method(self.models_obj.siqr_model, y0, t, 
+        solution = self.runge_kutta_4(self.models_obj.siqr_model, y0, t, 
                                    (params["beta"], params["gamma"], params["delta"], params["mu"]))
         S, I, Q, R = solution
         
@@ -635,7 +654,7 @@ class EpidemicModelsApp:
     def run_m_model(self, t, params, initials, plot_index):
         """Запускает M-модель на указанном графике"""
         y0 = [initials["S0"]] + initials["I0"] + [initials["R0"]]
-        solution = self.euler_method(self.models_obj.multi_stage_model, y0, t, 
+        solution = self.runge_kutta_4(self.models_obj.multi_stage_model, y0, t, 
                                    (params["beta"], params["k"], params["gamma"]))
         
         ax = self.axes[plot_index]

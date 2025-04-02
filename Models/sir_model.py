@@ -18,7 +18,7 @@ def main():
     y0 = [S0, I0, R0]
 
     # Время моделирования (дни)
-    t = np.linspace(0, 160, 160)
+    t = np.linspace(0, 30, 30)
 
     # Решение системы дифференциальных уравнений
     sol = odeint(sir_model, y0, t, args=(beta, gamma))
