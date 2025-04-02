@@ -582,6 +582,9 @@ class EpidemicModelsApp:
         ax.plot(t, I, 'r', label='Инфицированные')
         ax.grid()
         ax.set_ylim(0, 1)
+        ax.set_xlabel('Дни')
+        ax.set_ylabel('Доля населения')
+        ax.grid(True)
     
     def run_sir_model(self, t, params, initials, plot_index):
         """Запускает SIR модель на указанном графике"""
@@ -595,6 +598,9 @@ class EpidemicModelsApp:
         ax.plot(t, R, 'g', label='Выздоровевшие')
         ax.grid()
         ax.set_ylim(0, 1)
+        ax.set_xlabel('Дни')
+        ax.set_ylabel('Доля населения')
+        ax.grid(True)
     
     def run_sirs_model(self, t, params, initials, plot_index):
         """Запускает SIRS модель на указанном графике"""
@@ -608,6 +614,9 @@ class EpidemicModelsApp:
         ax.plot(t, R, 'g', label='Выздоровевшие')
         ax.grid()
         ax.set_ylim(0, 1)
+        ax.set_xlabel('Дни')
+        ax.set_ylabel('Доля населения')
+        ax.grid(True)
     
     def run_seir_model(self, t, params, initials, plot_index):
         """Запускает SEIR модель на указанном графике"""
@@ -622,6 +631,9 @@ class EpidemicModelsApp:
         ax.plot(t, R, 'g', label='Выздоровевшие')
         ax.grid()
         ax.set_ylim(0, 1)
+        ax.set_xlabel('Дни')
+        ax.set_ylabel('Доля населения')
+        ax.grid(True)
     
     def run_mseir_model(self, t, params, initials, plot_index):
         """Запускает MSEIR модель на указанном графике"""
@@ -638,6 +650,9 @@ class EpidemicModelsApp:
         ax.plot(t, R, 'purple', label='Выздоровевшие')
         ax.grid()
         ax.set_ylim(0, 1)
+        ax.set_xlabel('Дни')
+        ax.set_ylabel('Доля населения')
+        ax.grid(True)
     
     def run_siqr_model(self, t, params, initials, plot_index):
         """Запускает SIQR модель на указанном графике"""
@@ -653,6 +668,9 @@ class EpidemicModelsApp:
         ax.plot(t, R, 'k', label='Выздоровевшие')
         ax.grid()
         ax.set_ylim(0, 1)
+        ax.set_xlabel('Дни')
+        ax.set_ylabel('Доля населения')
+        ax.grid(True)
     
     def run_m_model(self, t, params, initials, plot_index):
         """Запускает M-модель на указанном графике"""
@@ -667,6 +685,9 @@ class EpidemicModelsApp:
         ax.plot(t, solution[-1], 'g', label='Выздоровевшие')
         ax.grid()
         ax.set_ylim(0, 1)
+        ax.set_xlabel('Дни')
+        ax.set_ylabel('Доля населения')
+        ax.grid(True)
 
 if __name__ == "__main__":
     root = tk.Tk()
