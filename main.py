@@ -235,18 +235,15 @@ class EpidemicModelsApp:
         """Создает правую панель с графиками"""
         right_frame = ttk.Frame(self.root)
         right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=5, pady=5)
-        self.style = ttk.Style()
-        self.style.configure('Large.TLabelframe.Label', font=('Arial', 30, 'bold'))  # Можно увеличить размер (12) по вашему усмотрению
         
         # Создаем 4 графических фрейма, но будем показывать только нужные
         self.plot_frames = []
         self.figs = []
         self.axes = []
         self.canvases = []
-        alp = ['А', 'Б', 'В', 'Г']
         
         for i in range(4):
-            frame = ttk.LabelFrame(right_frame, text=alp[i], padding=5, style='Large.TLabelframe')
+            frame = ttk.LabelFrame(right_frame, text=f'График {i+1}', padding=5)
             frame.grid(row=i//2, column=i%2, sticky="nsew", padx=5, pady=5)
             right_frame.rowconfigure(i//2, weight=1)
             right_frame.columnconfigure(i%2, weight=1)
