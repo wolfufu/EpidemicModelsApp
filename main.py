@@ -89,7 +89,6 @@ class EpidemicModelsApp:
         self.create_left_panel()
         self.create_right_panel()
         
-        # Добавляем первую модель по умолчанию
         self.add_model_field()
         
     def get_model_parameters(self, model_name):
@@ -182,20 +181,16 @@ class EpidemicModelsApp:
         left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=False, padx=5, pady=5)
         left_frame.pack_propagate(False)
             
-        # Выбор моделей
         model_frame = ttk.LabelFrame(left_frame, text="Выбор моделей (до 4)", padding=10)
         model_frame.pack(fill=tk.X, pady=5)
         
-        # Контейнер для полей выбора моделей
         self.models_container = ttk.Frame(model_frame)
         self.models_container.pack(fill=tk.X)
         
-        # Кнопка добавления новой модели
         self.add_button = ttk.Button(model_frame, text="+ Добавить модель", 
                                    command=self.add_model_field, state=tk.NORMAL)
         self.add_button.pack(pady=5)
         
-        # Диапазон дат
         date_frame = ttk.LabelFrame(left_frame, text="Диапазон дат", padding=10)
         date_frame.pack(fill=tk.X, pady=5)
         
@@ -223,11 +218,9 @@ class EpidemicModelsApp:
         self.end_date_entry.grid(row=1, column=1, sticky="w", padx=5, pady=2)
         self.end_date_entry.set_date(datetime.now())
         
-        # Кнопка запуска
         ttk.Button(left_frame, text="Запустить моделирование", 
                   command=self.run_models).pack(pady=10)
         
-        # Панель параметров
         self.params_notebook = ttk.Notebook(left_frame)
         self.params_notebook.pack(fill=tk.BOTH, expand=True, pady=5)
     
@@ -236,7 +229,6 @@ class EpidemicModelsApp:
         right_frame = ttk.Frame(self.root)
         right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=5, pady=5)
         
-        # Создаем 4 графических фрейма, но будем показывать только нужные
         self.plot_frames = []
         self.figs = []
         self.axes = []
@@ -261,7 +253,6 @@ class EpidemicModelsApp:
             self.axes.append(ax)
             self.canvases.append(canvas)
             
-            # Сначала скрываем все графики
             frame.grid_remove()
     
     def add_model_field(self):
@@ -284,13 +275,11 @@ class EpidemicModelsApp:
                        command=lambda: self.remove_model_field(frame, var))
         btn.pack(side=tk.RIGHT)
         
-        # Привязываем обработчик выбора модели
         cb.bind("<<ComboboxSelected>>", lambda e, v=var: self.model_selected(v))
         
         self.model_vars.append(var)
         self.model_widgets.append({"frame": frame, "combobox": cb, "button": btn})
         
-        # Обновляем состояние кнопки добавления
         if len(self.model_widgets) >= 4:
             self.add_button.config(state=tk.DISABLED)
         else:
@@ -303,21 +292,17 @@ class EpidemicModelsApp:
             self.selected_models.remove(model_name)
             self.update_params_notebook()
         
-        # Удаляем из списков
         for i, widget in enumerate(self.model_widgets):
             if widget["frame"] == frame:
                 self.model_widgets.pop(i)
                 self.model_vars.pop(i)
                 break
         
-        # Удаляем фрейм
         frame.destroy()
         
-        # Обновляем состояние кнопки добавления
         if len(self.model_widgets) < 4:
             self.add_button.config(state=tk.NORMAL)
         
-        # Обновляем графики
         self.update_plots_visibility()
     
     def model_selected(self, var):
@@ -326,7 +311,6 @@ class EpidemicModelsApp:
         if not model_name:
             return
         
-        # Проверяем, не выбрана ли эта модель уже в другом поле
         for v in self.model_vars:
             if v != var and v.get() == model_name:
                 messagebox.showwarning("Предупреждение", "Эта модель уже выбрана")
@@ -337,7 +321,6 @@ class EpidemicModelsApp:
             self.selected_models.append(model_name)
             self.update_params_notebook()
         
-        # Обновляем видимость графиков
         self.update_plots_visibility()
     
     def update_plots_visibility(self):
@@ -354,11 +337,9 @@ class EpidemicModelsApp:
     
     def update_params_notebook(self):
         """Обновляет блокнот с параметрами для выбранных моделей"""
-        # Удаляем все существующие вкладки
         for tab in self.params_notebook.tabs():
             self.params_notebook.forget(tab)
         
-        # Создаем новые вкладки для выбранных моделей
         for i, model_name in enumerate(self.selected_models):
             tab = ttk.Frame(self.params_notebook)
             self.params_notebook.add(tab, text=model_name)
@@ -366,19 +347,15 @@ class EpidemicModelsApp:
             model_info = self.available_models[model_name]
             params = model_info["params"]
             
-            # Создаем вкладки для параметров и начальных условий
             notebook = ttk.Notebook(tab)
             notebook.pack(fill=tk.BOTH, expand=True)
             
-            # Вкладка с параметрами модели
             params_tab = ttk.Frame(notebook)
             notebook.add(params_tab, text="Параметры")
             
-            # Вкладка с начальными условиями
             initial_tab = ttk.Frame(notebook)
             notebook.add(initial_tab, text="Начальные условия")
             
-            # Сохраняем виджеты параметров
             if not hasattr(self, 'model_params'):
                 self.model_params = {}
             self.model_params[model_name] = {
@@ -386,7 +363,6 @@ class EpidemicModelsApp:
                 "initial_widgets": {}
             }
             
-            # Заполняем вкладку параметров
             row = 0
             for param, info in params.items():
                 if param == "initial":
@@ -395,7 +371,6 @@ class EpidemicModelsApp:
                 ttk.Label(params_tab, text=info["name"]).grid(row=row, column=0, sticky="w", padx=5, pady=2)
                 
                 if isinstance(info["default"], list):
-                    # Для параметров, которые являются списками
                     frame = ttk.Frame(params_tab)
                     frame.grid(row=row, column=1, sticky="w")
                     
@@ -409,7 +384,6 @@ class EpidemicModelsApp:
                     
                     self.model_params[model_name]["param_widgets"][param] = entries
                 else:
-                    # Для обычных параметров
                     spin = ttk.Spinbox(
                         params_tab,
                         from_=info["min"],
@@ -423,7 +397,6 @@ class EpidemicModelsApp:
                 
                 row += 1
             
-            # Заполняем вкладку начальных условий
             row = 0
             for param, info in params["initial"].items():
                 ttk.Label(initial_tab, text=info["name"]).grid(row=row, column=0, sticky="w", padx=5, pady=2)
@@ -443,7 +416,6 @@ class EpidemicModelsApp:
                     
                     self.model_params[model_name]["initial_widgets"][param] = entries
                 else:
-                    # Для обычных начальных условий
                     spin = ttk.Spinbox(
                         initial_tab,
                         from_=info["min"],
@@ -519,7 +491,6 @@ class EpidemicModelsApp:
     def run_models(self):
         """Запускает все выбранные модели"""
         try:
-            # Получаем даты
             start_date = self.start_date_entry.get_date()
             end_date = self.end_date_entry.get_date()
             
@@ -530,20 +501,16 @@ class EpidemicModelsApp:
             delta = end_date - start_date
             t = np.linspace(0, delta.days, delta.days + 1)
             
-            # Очищаем все графики
             for ax in self.axes:
                 ax.clear()
             
-            # Запускаем каждую выбранную модель
             for i, model_name in enumerate(self.selected_models):
                 if i >= 4:  # Не больше 4 моделей
                     break
                 
-                # Получаем параметры для модели
                 params = self.get_parameter_values(model_name)
                 initials = self.get_initial_values(model_name)
                 
-                # Запускаем соответствующую модель
                 if model_name == "SI":
                     self.run_si_model(t, params, initials, i)
                 elif model_name == "SIR":
@@ -559,7 +526,6 @@ class EpidemicModelsApp:
                 elif model_name == "M-модель":
                     self.run_m_model(t, params, initials, i)
                 
-                # Настраиваем график
                 self.axes[i].set_title(self.available_models[model_name]["name"])
                 self.axes[i].legend()
                 self.canvases[i].draw()
@@ -567,7 +533,6 @@ class EpidemicModelsApp:
         except Exception as e:
             messagebox.showerror("Ошибка", f"Ошибка при выполнении моделирования: {str(e)}")
     
-    # Модифицированные методы для моделей (используем метод Эйлера)
     def run_si_model(self, t, params, initials, plot_index):
         """Запускает SI модель на указанном графике"""
         y0 = [initials["S0"], initials["I0"]]
