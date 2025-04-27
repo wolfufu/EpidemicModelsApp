@@ -10,9 +10,45 @@ import os
 import zipfile
 from io import BytesIO
 
-class EpidemicModels:
+class NumericalMethods:
+    def __init__(self):
+        result = None
+
+    def euler_method(self, model_func, y0, t, args):
+        """Реализация метода Эйлера для решения СДУ"""
+        y = np.zeros((len(t), len(y0)))
+        y[0] = y0
+        
+        for i in range(1, len(t)):
+            dt = t[i] - t[i-1]
+            dy = model_func(y[i-1], t[i-1], *args)
+            y[i] = y[i-1] + dy * dt
+        print(y.T)
+        self.result = y.T
+    
+    def runge_kutta_4(self, model_func, y0, t, args):
+        """Реализация метода Рунге-Кутты 4-го порядка для решения СДУ"""
+        y = np.zeros((len(t), len(y0)))
+        y[0] = y0
+        
+        for i in range(1, len(t)):
+            dt = t[i] - t[i-1]
+            h = dt
+            
+            k1 = model_func(y[i-1], t[i-1], *args)
+            k2 = model_func(y[i-1] + 0.5*h*k1, t[i-1] + 0.5*h, *args)
+            k3 = model_func(y[i-1] + 0.5*h*k2, t[i-1] + 0.5*h, *args)
+            k4 = model_func(y[i-1] + h*k3, t[i-1] + h, *args)
+            
+            y[i] = y[i-1] + (h/6.0)*(k1 + 2*k2 + 2*k3 + k4)
+        
+        print(y)
+        self.result = y.T
+
+class EpidemicModels(NumericalMethods):
     def __init__(self):
         self.current_models = []
+        self.numeric_methods = []
 
     def sir_model(self, y, t, beta, gamma):
         S, I, R = y
@@ -68,8 +104,360 @@ class EpidemicModels:
             dI_dt.append(k[j-1] * I[j-1] - k[j] * I[j])
         dR_dt = k[-1] * I[-1] - gamma * R
         return np.array([dS_dt] + dI_dt + [dR_dt])
+    
+    def run_si_model(self, t, params, initials, plot_index, return_solution=False):
+        """Запускает SI модель на указанном графике"""
+        y0 = [initials["S0"], initials["I0"]]
+        solution = self.runge_kutta_4(self.models_obj.si_model, y0, t, (params["beta"],))
+        S, I = solution
+        
+        ax = self.axes[plot_index]
+        ax.plot(t, S, 'b', label='Восприимчивые')
+        ax.plot(t, I, 'r', label='Инфицированные')
+        ax.grid()
+        ax.set_ylim(0, 1)
+        ax.set_xlabel('Дни')
+        ax.set_ylabel('Доля населения')
+        ax.grid(True)
+        
+        if return_solution:
+            return {"S": S, "I": I}
+    
+    def run_sir_model(self, t, params, initials, plot_index, return_solution=False):
+        """Запускает SIR модель на указанном графике"""
+        y0 = [initials["S0"], initials["I0"], initials["R0"]]
+        solution = self.runge_kutta_4(self.models_obj.sir_model, y0, t, (params["beta"], params["gamma"]))
+        S, I, R = solution
+        
+        ax = self.axes[plot_index]
+        ax.plot(t, S, 'b', label='Восприимчивые')
+        ax.plot(t, I, 'r', label='Инфицированные')
+        ax.plot(t, R, 'g', label='Выздоровевшие')
+        ax.grid()
+        ax.set_ylim(0, 1)
+        ax.set_xlabel('Дни')
+        ax.set_ylabel('Доля населения')
+        ax.grid(True)
 
-class EpidemicModelsApp:
+        if return_solution:
+            return {"S": S, "I": I, "R": R}
+    
+    def run_sirs_model(self, t, params, initials, plot_index, return_solution=False):
+        """Запускает SIRS модель на указанном графике"""
+        y0 = [initials["S0"], initials["I0"], initials["R0"]]
+        solution = self.runge_kutta_4(self.models_obj.sirs_model, y0, t, (params["beta"], params["gamma"], params["delta"]))
+        S, I, R = solution
+        
+        ax = self.axes[plot_index]
+        ax.plot(t, S, 'b', label='Восприимчивые')
+        ax.plot(t, I, 'r', label='Инфицированные')
+        ax.plot(t, R, 'g', label='Выздоровевшие')
+        ax.grid()
+        ax.set_ylim(0, 1)
+        ax.set_xlabel('Дни')
+        ax.set_ylabel('Доля населения')
+        ax.grid(True)
+
+        if return_solution:
+            return {"S": S, "I": I, "R": R, "S": S}
+    
+    def run_seir_model(self, t, params, initials, plot_index, return_solution=False):
+        """Запускает SEIR модель на указанном графике"""
+        y0 = [initials["S0"], initials["E0"], initials["I0"], initials["R0"]]
+        solution = self.runge_kutta_4(self.models_obj.seir_model, y0, t, (params["beta"], params["sigma"], params["gamma"]))
+        S, E, I, R = solution
+        
+        ax = self.axes[plot_index]
+        ax.plot(t, S, 'b', label='Восприимчивые')
+        ax.plot(t, E, 'y', label='Латентные')
+        ax.plot(t, I, 'r', label='Инфицированные')
+        ax.plot(t, R, 'g', label='Выздоровевшие')
+        ax.grid()
+        ax.set_ylim(0, 1)
+        ax.set_xlabel('Дни')
+        ax.set_ylabel('Доля населения')
+        ax.grid(True)
+
+        if return_solution:
+            return {"S": S, "E": E, "I": I, "R": R}
+    
+    def run_mseir_model(self, t, params, initials, plot_index, return_solution=False):
+        """Запускает MSEIR модель на указанном графике"""
+        y0 = [initials["M0"], initials["S0"], initials["E0"], initials["I0"], initials["R0"]]
+        solution = self.runge_kutta_4(self.models_obj.mseir_model, y0, t, 
+                                   (params["mu"], params["delta"], params["beta"], params["sigma"], params["gamma"]))
+        M, S, E, I, R = solution
+        
+        ax = self.axes[plot_index]
+        ax.plot(t, M, 'b', label='Материнский иммунитет')
+        ax.plot(t, S, 'g', label='Восприимчивые')
+        ax.plot(t, E, 'y', label='Латентные')
+        ax.plot(t, I, 'r', label='Инфицированные')
+        ax.plot(t, R, 'purple', label='Выздоровевшие')
+        ax.grid()
+        ax.set_ylim(0, 1)
+        ax.set_xlabel('Дни')
+        ax.set_ylabel('Доля населения')
+        ax.grid(True)
+
+        if return_solution:
+            return {"M": M, "S": S, "E": E, "I": I, "R": R}
+    
+    def run_siqr_model(self, t, params, initials, plot_index, return_solution=False):
+        """Запускает SIQR модель на указанном графике"""
+        y0 = [initials["S0"], initials["I0"], initials["Q0"], initials["R0"]]
+        solution = self.runge_kutta_4(self.models_obj.siqr_model, y0, t, 
+                                   (params["beta"], params["gamma"], params["delta"], params["mu"]))
+        S, I, Q, R = solution
+        
+        ax = self.axes[plot_index]
+        ax.plot(t, S, 'b', label='Восприимчивые')
+        ax.plot(t, I, 'r', label='Инфицированные')
+        ax.plot(t, Q, 'g', label='Изолированные')
+        ax.plot(t, R, 'k', label='Выздоровевшие')
+        ax.grid()
+        ax.set_ylim(0, 1)
+        ax.set_xlabel('Дни')
+        ax.set_ylabel('Доля населения')
+        ax.grid(True)
+
+        if return_solution:
+            return {"S": S, "I": I, "Q": Q, "R": R}
+    
+    def run_m_model(self, t, params, initials, plot_index, return_solution=False):
+        """Запускает M-модель на указанном графике"""
+        y0 = [initials["S0"]] + initials["I0"] + [initials["R0"]]
+        solution = self.runge_kutta_4(self.models_obj.multi_stage_model, y0, t, 
+                                (params["beta"], params["k"], params["gamma"]))
+        
+        ax = self.axes[plot_index]
+        ax.plot(t, solution[0], 'b', label='Восприимчивые')
+        for j in range(len(initials["I0"])):
+            ax.plot(t, solution[j+1], linestyle='dashed', label=f'I{j+1} (Стадия {j+1})')
+        ax.plot(t, solution[-1], 'g', label='Выздоровевшие')
+        ax.grid()
+        ax.set_ylim(0, 1)
+        ax.set_xlabel('Дни')
+        ax.set_ylabel('Доля населения')
+        ax.grid(True)
+        
+        if return_solution:
+            result = {
+                "S": solution[0],
+                "R": solution[-1]
+            }
+            # Добавляем все стадии инфицированных
+            for j in range(len(initials["I0"])):
+                result[f"I{j+1}"] = solution[j+1]
+            
+            return result
+    
+class EpidemicModelsTechLog:
+    def __init__(self):
+        pass
+
+    def load_excel_data(self):
+        """Загружает данные из Excel файла"""
+        file_path = filedialog.askopenfilename(
+            filetypes=[("Excel files", "*.xlsx *.xls"), ("All files", "*.*")]
+        )
+        
+        if not file_path:
+            return
+        
+        try:
+            # Читаем Excel файл
+            self.excel_data = pd.read_excel(file_path)
+            self.excel_data_columns = list(self.excel_data.columns)
+            
+            # Создаем окно для выбора столбцов
+            self.create_data_mapping_window()
+            
+            messagebox.showinfo("Успех", "Данные успешно загружены")
+            
+        except Exception as e:
+            messagebox.showerror("Ошибка", f"Не удалось загрузить данные: {str(e)}")
+
+    def create_data_mapping_window(self):
+        """Создает окно для сопоставления столбцов из Excel с параметрами модели"""
+        if self.excel_data is None:
+            return
+        
+        mapping_window = tk.Toplevel(self.root)
+        mapping_window.title("Сопоставление данных")
+        mapping_window.geometry("500x400")
+        
+        # Фрейм для выбора модели
+        model_frame = ttk.LabelFrame(mapping_window, text="Выберите модель для сопоставления")
+        model_frame.pack(fill=tk.X, padx=5, pady=5)
+        
+        model_var = tk.StringVar()
+        model_combobox = ttk.Combobox(model_frame, textvariable=model_var, 
+                                    values=list(self.available_models.keys()))
+        model_combobox.pack(fill=tk.X, padx=5, pady=5)
+        
+        # Фрейм для сопоставления столбцов
+        mapping_frame = ttk.LabelFrame(mapping_window, text="Сопоставьте столбцы")
+        mapping_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        
+        # Получаем параметры модели при выборе
+        def update_mappings(event):
+            # Очищаем предыдущие сопоставления
+            for widget in mapping_frame.winfo_children():
+                widget.destroy()
+            
+            model_name = model_var.get()
+            if not model_name:
+                return
+            
+            model_params = self.available_models[model_name]["params"]
+            initial_params = model_params["initial"]
+            
+            self.mapping_widgets = {}
+            
+            row = 0
+            for param, info in initial_params.items():
+                ttk.Label(mapping_frame, text=info["name"]).grid(row=row, column=0, sticky="w", padx=5, pady=2)
+                
+                var = tk.StringVar()
+                cb = ttk.Combobox(mapping_frame, textvariable=var, 
+                                  values=[""] + self.excel_data_columns)
+                cb.grid(row=row, column=1, sticky="ew", padx=5, pady=2)
+                
+                self.mapping_widgets[param] = var
+                row += 1
+            
+            # Кнопка применения
+            ttk.Button(mapping_frame, text="Применить", 
+                      command=lambda: self.apply_data_mapping(model_name)).grid(
+                      row=row, column=0, columnspan=2, pady=10)
+        
+        model_combobox.bind("<<ComboboxSelected>>", update_mappings)
+        
+    def apply_data_mapping(self, model_name):
+        """Применяет сопоставление данных к выбранной модели"""
+        try:
+            mappings = {}
+            for param, var in self.mapping_widgets.items():
+                col_name = var.get()
+                if col_name:
+                    mappings[param] = col_name
+            
+            if not mappings:
+                messagebox.showwarning("Предупреждение", "Не выбрано ни одного сопоставления")
+                return
+            
+            # Обновляем начальные условия в интерфейсе
+            model_info = self.available_models[model_name]
+            initial_params = model_info["params"]["initial"]
+            
+            # Находим вкладку с параметрами модели
+            for tab_id in self.params_notebook.tabs():
+                if self.params_notebook.tab(tab_id, "text") == model_name:
+                    # Находим вкладку с начальными условиями
+                    notebook = self.params_notebook.nametowidget(tab_id).winfo_children()[0]
+                    for inner_tab_id in notebook.tabs():
+                        if notebook.tab(inner_tab_id, "text") == "Начальные условия":
+                            initial_tab = notebook.nametowidget(inner_tab_id)
+                            
+                            # Обновляем значения
+                            for param, widget in self.model_params[model_name]["initial_widgets"].items():
+                                if param in mappings:
+                                    col_name = mappings[param]
+                                    value = self.excel_data[col_name].iloc[0]
+                                    
+                                    if isinstance(widget, list):
+                                        # Для списков значений (например, нескольких стадий)
+                                        for i, entry in enumerate(widget):
+                                            if i < len(value):
+                                                entry.delete(0, tk.END)
+                                                entry.insert(0, str(value[i]))
+                                    else:
+                                        # Для одиночных значений
+                                        widget.delete(0, tk.END)
+                                        widget.insert(0, str(value))
+            
+            messagebox.showinfo("Успех", "Данные успешно применены")
+            
+        except Exception as e:
+            messagebox.showerror("Ошибка", f"Не удалось применить данные: {str(e)}")
+
+    def export_results(self):
+        """Экспортирует результаты моделирования в Excel-файлы и упаковывает в ZIP-архив"""
+        if not hasattr(self, 'model_results') or not self.model_results:
+            messagebox.showwarning("Предупреждение", "Сначала выполните моделирование")
+            return
+        
+        # Запрашиваем место сохранения
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".zip",
+            filetypes=[("ZIP архив", "*.zip")],
+            title="Сохранить результаты моделирования"
+        )
+        
+        if not file_path:
+            return  # Пользователь отменил сохранение
+        
+        try:
+            temp_dir = "temp_epidemic_models"
+            os.makedirs(temp_dir, exist_ok=True)
+            
+            for model_name, data in self.model_results.items():
+                # Создаем Excel-файл
+                excel_file = os.path.join(temp_dir, f"{model_name}.xlsx")
+                
+                with pd.ExcelWriter(excel_file, engine='xlsxwriter') as writer:
+                    # Лист с параметрами
+                    params_df = pd.DataFrame.from_dict(data["parameters"], orient='index', columns=['Значение'])
+                    params_df.index.name = 'Параметр'
+                    params_df.to_excel(writer, sheet_name='Параметры')
+                    
+                    # Лист с начальными условиями
+                    initials_df = pd.DataFrame.from_dict(data["initial_conditions"], orient='index', columns=['Значение'])
+                    initials_df.index.name = 'Переменная'
+                    initials_df.to_excel(writer, sheet_name='Начальные условия')
+                    
+                    # Лист с решением
+                    solution_df = pd.DataFrame(data["solution"])
+                    solution_df.index = data["time_points"]
+                    solution_df.index.name = 'День'
+                    solution_df.to_excel(writer, sheet_name='Решение')
+                    
+                    workbook = writer.book
+                    worksheet = workbook.add_worksheet('График')
+                    
+                    # Вставляем изображение
+                    data["graph"].seek(0)
+                    worksheet.insert_image('B2', f"{model_name}_graph.png", {'image_data': data["graph"]})
+            
+            # Создаем ZIP-архив
+            with zipfile.ZipFile(file_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                for root, dirs, files in os.walk(temp_dir):
+                    for file in files:
+                        zipf.write(os.path.join(root, file), file)
+            
+            # Удаляем временную папку
+            for root, dirs, files in os.walk(temp_dir, topdown=False):
+                for name in files:
+                    os.remove(os.path.join(root, name))
+                for name in dirs:
+                    os.rmdir(os.path.join(root, name))
+            os.rmdir(temp_dir)
+            
+            messagebox.showinfo("Успех", f"Результаты успешно экспортированы в {file_path}")
+            
+        except Exception as e:
+            messagebox.showerror("Ошибка", f"Ошибка при экспорте результатов: {str(e)}")
+            # Удаляем временную папку в случае ошибки
+            if os.path.exists(temp_dir):
+                for root, dirs, files in os.walk(temp_dir, topdown=False):
+                    for name in files:
+                        os.remove(os.path.join(root, name))
+                    for name in dirs:
+                        os.rmdir(os.path.join(root, name))
+                os.rmdir(temp_dir)
+
+class EpidemicModelsApp(EpidemicModelsTechLog, EpidemicModels):
     def __init__(self, root):
         self.root = root
         self.root.title("Моделирование эпидемий")
@@ -92,8 +480,6 @@ class EpidemicModelsApp:
         
         self.create_left_panel()
         self.create_right_panel()
-        
-        self.add_model_field(initial_model="SIR", show_remove_button=False)
         
     def get_model_parameters(self, model_name):
         """Возвращает параметры для конкретной модели"""
@@ -225,6 +611,12 @@ class EpidemicModelsApp:
         ttk.Button(left_frame, text="Запустить моделирование", 
                   command=self.run_models).pack(pady=10)
         
+        ttk.Button(left_frame, text="Загрузить данные из Excel", 
+                 command=self.load_excel_data).pack(pady=5)
+        
+        self.excel_data = None
+        self.excel_data_columns = []
+        
         ttk.Button(left_frame, text="Экспорт в Excel", 
                  command=self.export_results).pack(pady=5)
         
@@ -288,7 +680,6 @@ class EpidemicModelsApp:
                            command=lambda: self.remove_model_field(frame, var))
             btn.pack(side=tk.RIGHT)
         else:
-            # Пустая метка для выравнивания, если кнопка удаления не нужна
             ttk.Label(frame, width=2).pack(side=tk.RIGHT)
         
         cb.bind("<<ComboboxSelected>>", lambda e, v=var: self.model_selected(v))
@@ -572,228 +963,6 @@ class EpidemicModelsApp:
                 
         except Exception as e:
             messagebox.showerror("Ошибка", f"Ошибка при выполнении моделирования: {str(e)}")
-    
-    def run_si_model(self, t, params, initials, plot_index, return_solution=False):
-        """Запускает SI модель на указанном графике"""
-        y0 = [initials["S0"], initials["I0"]]
-        solution = self.runge_kutta_4(self.models_obj.si_model, y0, t, (params["beta"],))
-        S, I = solution
-        
-        ax = self.axes[plot_index]
-        ax.plot(t, S, 'b', label='Восприимчивые')
-        ax.plot(t, I, 'r', label='Инфицированные')
-        ax.grid()
-        ax.set_ylim(0, 1)
-        ax.set_xlabel('Дни')
-        ax.set_ylabel('Доля населения')
-        ax.grid(True)
-        
-        if return_solution:
-            return {"S": S, "I": I}
-    
-    def run_sir_model(self, t, params, initials, plot_index, return_solution=False):
-        """Запускает SIR модель на указанном графике"""
-        y0 = [initials["S0"], initials["I0"], initials["R0"]]
-        solution = self.runge_kutta_4(self.models_obj.sir_model, y0, t, (params["beta"], params["gamma"]))
-        S, I, R = solution
-        
-        ax = self.axes[plot_index]
-        ax.plot(t, S, 'b', label='Восприимчивые')
-        ax.plot(t, I, 'r', label='Инфицированные')
-        ax.plot(t, R, 'g', label='Выздоровевшие')
-        ax.grid()
-        ax.set_ylim(0, 1)
-        ax.set_xlabel('Дни')
-        ax.set_ylabel('Доля населения')
-        ax.grid(True)
-
-        if return_solution:
-            return {"S": S, "I": I, "R": R}
-    
-    def run_sirs_model(self, t, params, initials, plot_index, return_solution=False):
-        """Запускает SIRS модель на указанном графике"""
-        y0 = [initials["S0"], initials["I0"], initials["R0"]]
-        solution = self.runge_kutta_4(self.models_obj.sirs_model, y0, t, (params["beta"], params["gamma"], params["delta"]))
-        S, I, R = solution
-        
-        ax = self.axes[plot_index]
-        ax.plot(t, S, 'b', label='Восприимчивые')
-        ax.plot(t, I, 'r', label='Инфицированные')
-        ax.plot(t, R, 'g', label='Выздоровевшие')
-        ax.grid()
-        ax.set_ylim(0, 1)
-        ax.set_xlabel('Дни')
-        ax.set_ylabel('Доля населения')
-        ax.grid(True)
-
-        if return_solution:
-            return {"S": S, "I": I, "R": R, "S": S}
-    
-    def run_seir_model(self, t, params, initials, plot_index, return_solution=False):
-        """Запускает SEIR модель на указанном графике"""
-        y0 = [initials["S0"], initials["E0"], initials["I0"], initials["R0"]]
-        solution = self.runge_kutta_4(self.models_obj.seir_model, y0, t, (params["beta"], params["sigma"], params["gamma"]))
-        S, E, I, R = solution
-        
-        ax = self.axes[plot_index]
-        ax.plot(t, S, 'b', label='Восприимчивые')
-        ax.plot(t, E, 'y', label='Латентные')
-        ax.plot(t, I, 'r', label='Инфицированные')
-        ax.plot(t, R, 'g', label='Выздоровевшие')
-        ax.grid()
-        ax.set_ylim(0, 1)
-        ax.set_xlabel('Дни')
-        ax.set_ylabel('Доля населения')
-        ax.grid(True)
-
-        if return_solution:
-            return {"S": S, "E": E, "I": I, "R": R}
-    
-    def run_mseir_model(self, t, params, initials, plot_index, return_solution=False):
-        """Запускает MSEIR модель на указанном графике"""
-        y0 = [initials["M0"], initials["S0"], initials["E0"], initials["I0"], initials["R0"]]
-        solution = self.runge_kutta_4(self.models_obj.mseir_model, y0, t, 
-                                   (params["mu"], params["delta"], params["beta"], params["sigma"], params["gamma"]))
-        M, S, E, I, R = solution
-        
-        ax = self.axes[plot_index]
-        ax.plot(t, M, 'b', label='Материнский иммунитет')
-        ax.plot(t, S, 'g', label='Восприимчивые')
-        ax.plot(t, E, 'y', label='Латентные')
-        ax.plot(t, I, 'r', label='Инфицированные')
-        ax.plot(t, R, 'purple', label='Выздоровевшие')
-        ax.grid()
-        ax.set_ylim(0, 1)
-        ax.set_xlabel('Дни')
-        ax.set_ylabel('Доля населения')
-        ax.grid(True)
-
-        if return_solution:
-            return {"M": M, "S": S, "E": E, "I": I, "R": R}
-    
-    def run_siqr_model(self, t, params, initials, plot_index, return_solution=False):
-        """Запускает SIQR модель на указанном графике"""
-        y0 = [initials["S0"], initials["I0"], initials["Q0"], initials["R0"]]
-        solution = self.runge_kutta_4(self.models_obj.siqr_model, y0, t, 
-                                   (params["beta"], params["gamma"], params["delta"], params["mu"]))
-        S, I, Q, R = solution
-        
-        ax = self.axes[plot_index]
-        ax.plot(t, S, 'b', label='Восприимчивые')
-        ax.plot(t, I, 'r', label='Инфицированные')
-        ax.plot(t, Q, 'g', label='Изолированные')
-        ax.plot(t, R, 'k', label='Выздоровевшие')
-        ax.grid()
-        ax.set_ylim(0, 1)
-        ax.set_xlabel('Дни')
-        ax.set_ylabel('Доля населения')
-        ax.grid(True)
-
-        if return_solution:
-            return {"S": S, "I": I, "Q": Q, "R": R}
-    
-    def run_m_model(self, t, params, initials, plot_index, return_solution=False):
-        """Запускает M-модель на указанном графике"""
-        y0 = [initials["S0"]] + initials["I0"] + [initials["R0"]]
-        solution = self.runge_kutta_4(self.models_obj.multi_stage_model, y0, t, 
-                                (params["beta"], params["k"], params["gamma"]))
-        
-        ax = self.axes[plot_index]
-        ax.plot(t, solution[0], 'b', label='Восприимчивые')
-        for j in range(len(initials["I0"])):
-            ax.plot(t, solution[j+1], linestyle='dashed', label=f'I{j+1} (Стадия {j+1})')
-        ax.plot(t, solution[-1], 'g', label='Выздоровевшие')
-        ax.grid()
-        ax.set_ylim(0, 1)
-        ax.set_xlabel('Дни')
-        ax.set_ylabel('Доля населения')
-        ax.grid(True)
-        
-        if return_solution:
-            result = {
-                "S": solution[0],
-                "R": solution[-1]
-            }
-            # Добавляем все стадии инфицированных
-            for j in range(len(initials["I0"])):
-                result[f"I{j+1}"] = solution[j+1]
-            
-            return result
-
-    def export_results(self):
-        """Экспортирует результаты моделирования в Excel-файлы и упаковывает в ZIP-архив"""
-        if not hasattr(self, 'model_results') or not self.model_results:
-            messagebox.showwarning("Предупреждение", "Сначала выполните моделирование")
-            return
-        
-        # Запрашиваем место сохранения
-        file_path = filedialog.asksaveasfilename(
-            defaultextension=".zip",
-            filetypes=[("ZIP архив", "*.zip")],
-            title="Сохранить результаты моделирования"
-        )
-        
-        if not file_path:
-            return  # Пользователь отменил сохранение
-        
-        try:
-            temp_dir = "temp_epidemic_models"
-            os.makedirs(temp_dir, exist_ok=True)
-            
-            for model_name, data in self.model_results.items():
-                # Создаем Excel-файл
-                excel_file = os.path.join(temp_dir, f"{model_name}.xlsx")
-                
-                with pd.ExcelWriter(excel_file, engine='xlsxwriter') as writer:
-                    # Лист с параметрами
-                    params_df = pd.DataFrame.from_dict(data["parameters"], orient='index', columns=['Значение'])
-                    params_df.index.name = 'Параметр'
-                    params_df.to_excel(writer, sheet_name='Параметры')
-                    
-                    # Лист с начальными условиями
-                    initials_df = pd.DataFrame.from_dict(data["initial_conditions"], orient='index', columns=['Значение'])
-                    initials_df.index.name = 'Переменная'
-                    initials_df.to_excel(writer, sheet_name='Начальные условия')
-                    
-                    # Лист с решением
-                    solution_df = pd.DataFrame(data["solution"])
-                    solution_df.index = data["time_points"]
-                    solution_df.index.name = 'День'
-                    solution_df.to_excel(writer, sheet_name='Решение')
-                    
-                    workbook = writer.book
-                    worksheet = workbook.add_worksheet('График')
-                    
-                    # Вставляем изображение
-                    data["graph"].seek(0)
-                    worksheet.insert_image('B2', f"{model_name}_graph.png", {'image_data': data["graph"]})
-            
-            # Создаем ZIP-архив
-            with zipfile.ZipFile(file_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-                for root, dirs, files in os.walk(temp_dir):
-                    for file in files:
-                        zipf.write(os.path.join(root, file), file)
-            
-            # Удаляем временную папку
-            for root, dirs, files in os.walk(temp_dir, topdown=False):
-                for name in files:
-                    os.remove(os.path.join(root, name))
-                for name in dirs:
-                    os.rmdir(os.path.join(root, name))
-            os.rmdir(temp_dir)
-            
-            messagebox.showinfo("Успех", f"Результаты успешно экспортированы в {file_path}")
-            
-        except Exception as e:
-            messagebox.showerror("Ошибка", f"Ошибка при экспорте результатов: {str(e)}")
-            # Удаляем временную папку в случае ошибки
-            if os.path.exists(temp_dir):
-                for root, dirs, files in os.walk(temp_dir, topdown=False):
-                    for name in files:
-                        os.remove(os.path.join(root, name))
-                    for name in dirs:
-                        os.rmdir(os.path.join(root, name))
-                os.rmdir(temp_dir)
 
 if __name__ == "__main__":
     root = tk.Tk()
