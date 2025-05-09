@@ -105,10 +105,15 @@ class EpidemicModels(NumericalMethods):
         dR_dt = k[-1] * I[-1] - gamma * R
         return np.array([dS_dt] + dI_dt + [dR_dt])
     
-    def run_si_model(self, t, params, initials, plot_index, return_solution=False):
+    def run_si_model(self, t, params, initials, plot_index, return_solution=False, method="runge_kutta"):
         """Запускает SI модель на указанном графике"""
         y0 = [initials["S0"], initials["I0"]]
-        solution = self.runge_kutta_4(self.models_obj.si_model, y0, t, (params["beta"],))
+
+        if method == "runge_kutta":
+            solution = self.runge_kutta_4(self.models_obj.si_model, y0, t, (params["beta"],))
+        else:
+            solution = self.euler_method(self.models_obj.si_model, y0, t, (params["beta"],))
+
         S, I = solution
         
         ax = self.axes[plot_index]
@@ -123,10 +128,15 @@ class EpidemicModels(NumericalMethods):
         if return_solution:
             return {"S": S, "I": I}
     
-    def run_sir_model(self, t, params, initials, plot_index, return_solution=False):
+    def run_sir_model(self, t, params, initials, plot_index, return_solution=False, method="runge_kutta"):
         """Запускает SIR модель на указанном графике"""
         y0 = [initials["S0"], initials["I0"], initials["R0"]]
-        solution = self.runge_kutta_4(self.models_obj.sir_model, y0, t, (params["beta"], params["gamma"]))
+
+        if method == "runge_kutta":
+            solution = self.runge_kutta_4(self.models_obj.sir_model, y0, t, (params["beta"], params["gamma"]))
+        else:
+            solution = self.euler_method(self.models_obj.sir_model, y0, t, (params["beta"], params["gamma"]))
+
         S, I, R = solution
         
         ax = self.axes[plot_index]
@@ -142,10 +152,15 @@ class EpidemicModels(NumericalMethods):
         if return_solution:
             return {"S": S, "I": I, "R": R}
     
-    def run_sirs_model(self, t, params, initials, plot_index, return_solution=False):
+    def run_sirs_model(self, t, params, initials, plot_index, return_solution=False, method="runge_kutta"):
         """Запускает SIRS модель на указанном графике"""
         y0 = [initials["S0"], initials["I0"], initials["R0"]]
-        solution = self.runge_kutta_4(self.models_obj.sirs_model, y0, t, (params["beta"], params["gamma"], params["delta"]))
+
+        if method == "runge_kutta":
+            solution = self.runge_kutta_4(self.models_obj.sirs_model, y0, t, (params["beta"], params["gamma"], params["delta"]))
+        else:
+            solution = self.euler_method(self.models_obj.sirs_model, y0, t, (params["beta"], params["gamma"], params["delta"]))
+
         S, I, R = solution
         
         ax = self.axes[plot_index]
@@ -161,10 +176,15 @@ class EpidemicModels(NumericalMethods):
         if return_solution:
             return {"S": S, "I": I, "R": R, "S": S}
     
-    def run_seir_model(self, t, params, initials, plot_index, return_solution=False):
+    def run_seir_model(self, t, params, initials, plot_index, return_solution=False, method="runge_kutta"):
         """Запускает SEIR модель на указанном графике"""
         y0 = [initials["S0"], initials["E0"], initials["I0"], initials["R0"]]
-        solution = self.runge_kutta_4(self.models_obj.seir_model, y0, t, (params["beta"], params["sigma"], params["gamma"]))
+
+        if method == "runge_kutta":
+            solution = self.runge_kutta_4(self.models_obj.seir_model, y0, t, (params["beta"], params["sigma"], params["gamma"]))
+        else:
+            solution = self.euler_method(self.models_obj.seir_model, y0, t, (params["beta"], params["sigma"], params["gamma"]))
+
         S, E, I, R = solution
         
         ax = self.axes[plot_index]
@@ -181,11 +201,17 @@ class EpidemicModels(NumericalMethods):
         if return_solution:
             return {"S": S, "E": E, "I": I, "R": R}
     
-    def run_mseir_model(self, t, params, initials, plot_index, return_solution=False):
+    def run_mseir_model(self, t, params, initials, plot_index, return_solution=False, method="runge_kutta"):
         """Запускает MSEIR модель на указанном графике"""
         y0 = [initials["M0"], initials["S0"], initials["E0"], initials["I0"], initials["R0"]]
-        solution = self.runge_kutta_4(self.models_obj.mseir_model, y0, t, 
+
+        if method == "runge_kutta":
+            solution = self.runge_kutta_4(self.models_obj.mseir_model, y0, t, 
                                    (params["mu"], params["delta"], params["beta"], params["sigma"], params["gamma"]))
+        else:
+            solution = self.euler_method(self.models_obj.mseir_model, y0, t, 
+                                   (params["mu"], params["delta"], params["beta"], params["sigma"], params["gamma"]))
+            
         M, S, E, I, R = solution
         
         ax = self.axes[plot_index]
@@ -203,11 +229,17 @@ class EpidemicModels(NumericalMethods):
         if return_solution:
             return {"M": M, "S": S, "E": E, "I": I, "R": R}
     
-    def run_siqr_model(self, t, params, initials, plot_index, return_solution=False):
+    def run_siqr_model(self, t, params, initials, plot_index, return_solution=False, method="runge_kutta"):
         """Запускает SIQR модель на указанном графике"""
         y0 = [initials["S0"], initials["I0"], initials["Q0"], initials["R0"]]
-        solution = self.runge_kutta_4(self.models_obj.siqr_model, y0, t, 
+
+        if method == "runge_kutta":
+            solution = self.runge_kutta_4(self.models_obj.siqr_model, y0, t, 
                                    (params["beta"], params["gamma"], params["delta"], params["mu"]))
+        else:
+            solution = self.euler_method(self.models_obj.siqr_model, y0, t, 
+                                   (params["beta"], params["gamma"], params["delta"], params["mu"]))
+
         S, I, Q, R = solution
         
         ax = self.axes[plot_index]
@@ -224,10 +256,15 @@ class EpidemicModels(NumericalMethods):
         if return_solution:
             return {"S": S, "I": I, "Q": Q, "R": R}
     
-    def run_m_model(self, t, params, initials, plot_index, return_solution=False):
+    def run_m_model(self, t, params, initials, plot_index, return_solution=False, method="runge_kutta"):
         """Запускает M-модель на указанном графике"""
         y0 = [initials["S0"]] + initials["I0"] + [initials["R0"]]
-        solution = self.runge_kutta_4(self.models_obj.multi_stage_model, y0, t, 
+
+        if method == "runge_kutta":
+            solution = self.runge_kutta_4(self.models_obj.multi_stage_model, y0, t, 
+                                (params["beta"], params["k"], params["gamma"]))
+        else:
+            solution = self.euler_method(self.models_obj.multi_stage_model, y0, t, 
                                 (params["beta"], params["k"], params["gamma"]))
         
         ax = self.axes[plot_index]
@@ -607,6 +644,16 @@ class EpidemicModelsApp(EpidemicModelsTechLog, EpidemicModels):
         )
         self.end_date_entry.grid(row=1, column=1, sticky="w", padx=5, pady=2)
         self.end_date_entry.set_date(datetime.now())
+
+        # Выбор численного метода
+        method_frame = ttk.LabelFrame(left_frame, text="Численный метод", padding=10)
+        method_frame.pack(fill=tk.X, pady=5)
+
+        self.method_var = tk.StringVar(value="runge_kutta")
+        method_combobox = ttk.Combobox(method_frame, textvariable=self.method_var,
+                                        values=["runge_kutta", "euler"], state="readonly")
+        method_combobox.pack(fill=tk.X, padx=5)
+
         
         ttk.Button(left_frame, text="Запустить моделирование", 
                   command=self.run_models).pack(pady=10)
@@ -900,6 +947,7 @@ class EpidemicModelsApp(EpidemicModelsTechLog, EpidemicModels):
         try:
             start_date = self.start_date_entry.get_date()
             end_date = self.end_date_entry.get_date()
+            method = self.method_var.get()
             
             if end_date <= start_date:
                 messagebox.showerror("Ошибка", "Конечная дата должна быть позже начальной")
@@ -931,19 +979,19 @@ class EpidemicModelsApp(EpidemicModelsTechLog, EpidemicModels):
                 }
                 
                 if model_name == "SI":
-                    solution = self.run_si_model(t, params, initials, i, return_solution=True)
+                    solution = self.run_si_model(t, params, initials, i, return_solution=True, method=method)
                 elif model_name == "SIR":
-                    solution = self.run_sir_model(t, params, initials, i, return_solution=True)
+                    solution = self.run_sir_model(t, params, initials, i, return_solution=True, method=method)
                 elif model_name == "SIRS":
-                    solution = self.run_sirs_model(t, params, initials, i, return_solution=True)
+                    solution = self.run_sirs_model(t, params, initials, i, return_solution=True, method=method)
                 elif model_name == "SEIR":
-                    solution = self.run_seir_model(t, params, initials, i, return_solution=True)
+                    solution = self.run_seir_model(t, params, initials, i, return_solution=True, method=method)
                 elif model_name == "MSEIR":
-                    solution = self.run_mseir_model(t, params, initials, i, return_solution=True)
+                    solution = self.run_mseir_model(t, params, initials, i, return_solution=True, method=method)
                 elif model_name == "SIQR":
-                    solution = self.run_siqr_model(t, params, initials, i, return_solution=True)
+                    solution = self.run_siqr_model(t, params, initials, i, return_solution=True, method=method)
                 elif model_name == "M-модель":
-                    solution = self.run_m_model(t, params, initials, i, return_solution=True)
+                    solution = self.run_m_model(t, params, initials, i, return_solution=True, method=method h)
                 
                 # Сохраняем решение
                 model_data["solution"] = solution
