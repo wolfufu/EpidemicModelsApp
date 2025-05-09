@@ -911,37 +911,6 @@ class EpidemicModelsApp(EpidemicModelsTechLog, EpidemicModels):
                         initials[param] = 0.0
         return initials
     
-    def euler_method(self, model_func, y0, t, args):
-        """Реализация метода Эйлера для решения СДУ"""
-        y = np.zeros((len(t), len(y0)))
-        y[0] = y0
-        
-        for i in range(1, len(t)):
-            dt = t[i] - t[i-1]
-            dy = model_func(y[i-1], t[i-1], *args)
-            y[i] = y[i-1] + dy * dt
-        print(y.T)
-        return y.T
-    
-    def runge_kutta_4(self, model_func, y0, t, args):
-        """Реализация метода Рунге-Кутты 4-го порядка для решения СДУ"""
-        y = np.zeros((len(t), len(y0)))
-        y[0] = y0
-        
-        for i in range(1, len(t)):
-            dt = t[i] - t[i-1]
-            h = dt
-            
-            k1 = model_func(y[i-1], t[i-1], *args)
-            k2 = model_func(y[i-1] + 0.5*h*k1, t[i-1] + 0.5*h, *args)
-            k3 = model_func(y[i-1] + 0.5*h*k2, t[i-1] + 0.5*h, *args)
-            k4 = model_func(y[i-1] + h*k3, t[i-1] + h, *args)
-            
-            y[i] = y[i-1] + (h/6.0)*(k1 + 2*k2 + 2*k3 + k4)
-        
-        print(y)
-        return y.T
-    
     def run_models(self):
         """Запускает все выбранные модели и сохраняет результаты для экспорта"""
         try:
@@ -991,7 +960,7 @@ class EpidemicModelsApp(EpidemicModelsTechLog, EpidemicModels):
                 elif model_name == "SIQR":
                     solution = self.run_siqr_model(t, params, initials, i, return_solution=True, method=method)
                 elif model_name == "M-модель":
-                    solution = self.run_m_model(t, params, initials, i, return_solution=True, method=method h)
+                    solution = self.run_m_model(t, params, initials, i, return_solution=True, method=method)
                 
                 # Сохраняем решение
                 model_data["solution"] = solution
