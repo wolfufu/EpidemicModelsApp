@@ -41,6 +41,8 @@ class NumericalMethods:
             k4 = model_func(y[i-1] + h*k3, t[i-1] + h, *args)
             
             y[i] = y[i-1] + (h/6.0)*(k1 + 2*k2 + 2*k3 + k4)
+
+            print(y)
         
         print(y)
         self.result = y.T
@@ -110,173 +112,189 @@ class EpidemicModels(NumericalMethods):
         y0 = [initials["S0"], initials["I0"]]
 
         if method == "runge_kutta":
-            solution = self.runge_kutta_4(self.models_obj.si_model, y0, t, (params["beta"],))
+            self.runge_kutta_4(self.si_model, y0, t, (params["beta"],))
         else:
-            solution = self.euler_method(self.models_obj.si_model, y0, t, (params["beta"],))
+            self.euler_method(self.si_model, y0, t, (params["beta"],))
 
-        S, I = solution
+        S, I = self.result
         
         ax = self.axes[plot_index]
+        ax.clear()
         ax.plot(t, S, 'b', label='Восприимчивые')
         ax.plot(t, I, 'r', label='Инфицированные')
-        ax.grid()
         ax.set_ylim(0, 1)
         ax.set_xlabel('Дни')
         ax.set_ylabel('Доля населения')
         ax.grid(True)
+        ax.legend()
+        self.canvases[plot_index].draw()
         
         if return_solution:
             return {"S": S, "I": I}
-    
+
     def run_sir_model(self, t, params, initials, plot_index, return_solution=False, method="runge_kutta"):
         """Запускает SIR модель на указанном графике"""
         y0 = [initials["S0"], initials["I0"], initials["R0"]]
 
         if method == "runge_kutta":
-            solution = self.runge_kutta_4(self.models_obj.sir_model, y0, t, (params["beta"], params["gamma"]))
+            self.runge_kutta_4(self.sir_model, y0, t, (params["beta"], params["gamma"]))
         else:
-            solution = self.euler_method(self.models_obj.sir_model, y0, t, (params["beta"], params["gamma"]))
+            self.euler_method(self.sir_model, y0, t, (params["beta"], params["gamma"]))
 
-        S, I, R = solution
+        S, I, R = self.result
         
         ax = self.axes[plot_index]
+        ax.clear()
         ax.plot(t, S, 'b', label='Восприимчивые')
         ax.plot(t, I, 'r', label='Инфицированные')
         ax.plot(t, R, 'g', label='Выздоровевшие')
-        ax.grid()
         ax.set_ylim(0, 1)
         ax.set_xlabel('Дни')
         ax.set_ylabel('Доля населения')
         ax.grid(True)
+        ax.legend()
+        self.canvases[plot_index].draw()
 
         if return_solution:
             return {"S": S, "I": I, "R": R}
-    
+
     def run_sirs_model(self, t, params, initials, plot_index, return_solution=False, method="runge_kutta"):
         """Запускает SIRS модель на указанном графике"""
         y0 = [initials["S0"], initials["I0"], initials["R0"]]
 
         if method == "runge_kutta":
-            solution = self.runge_kutta_4(self.models_obj.sirs_model, y0, t, (params["beta"], params["gamma"], params["delta"]))
+            self.runge_kutta_4(self.sirs_model, y0, t, (params["beta"], params["gamma"], params["delta"]))
         else:
-            solution = self.euler_method(self.models_obj.sirs_model, y0, t, (params["beta"], params["gamma"], params["delta"]))
+            self.euler_method(self.sirs_model, y0, t, (params["beta"], params["gamma"], params["delta"]))
 
-        S, I, R = solution
+        S, I, R = self.result
         
         ax = self.axes[plot_index]
+        ax.clear()
         ax.plot(t, S, 'b', label='Восприимчивые')
         ax.plot(t, I, 'r', label='Инфицированные')
         ax.plot(t, R, 'g', label='Выздоровевшие')
-        ax.grid()
         ax.set_ylim(0, 1)
         ax.set_xlabel('Дни')
         ax.set_ylabel('Доля населения')
         ax.grid(True)
+        ax.legend()
+        self.canvases[plot_index].draw()
 
         if return_solution:
-            return {"S": S, "I": I, "R": R, "S": S}
-    
+            return {"S": S, "I": I, "R": R}
+
     def run_seir_model(self, t, params, initials, plot_index, return_solution=False, method="runge_kutta"):
         """Запускает SEIR модель на указанном графике"""
         y0 = [initials["S0"], initials["E0"], initials["I0"], initials["R0"]]
 
         if method == "runge_kutta":
-            solution = self.runge_kutta_4(self.models_obj.seir_model, y0, t, (params["beta"], params["sigma"], params["gamma"]))
+            self.runge_kutta_4(self.seir_model, y0, t, (params["beta"], params["sigma"], params["gamma"]))
         else:
-            solution = self.euler_method(self.models_obj.seir_model, y0, t, (params["beta"], params["sigma"], params["gamma"]))
+            self.euler_method(self.seir_model, y0, t, (params["beta"], params["sigma"], params["gamma"]))
 
-        S, E, I, R = solution
+        S, E, I, R = self.result
         
         ax = self.axes[plot_index]
+        ax.clear()
         ax.plot(t, S, 'b', label='Восприимчивые')
         ax.plot(t, E, 'y', label='Латентные')
         ax.plot(t, I, 'r', label='Инфицированные')
         ax.plot(t, R, 'g', label='Выздоровевшие')
-        ax.grid()
         ax.set_ylim(0, 1)
         ax.set_xlabel('Дни')
         ax.set_ylabel('Доля населения')
         ax.grid(True)
+        ax.legend()
+        self.canvases[plot_index].draw()
 
         if return_solution:
             return {"S": S, "E": E, "I": I, "R": R}
-    
+
     def run_mseir_model(self, t, params, initials, plot_index, return_solution=False, method="runge_kutta"):
         """Запускает MSEIR модель на указанном графике"""
         y0 = [initials["M0"], initials["S0"], initials["E0"], initials["I0"], initials["R0"]]
 
         if method == "runge_kutta":
-            solution = self.runge_kutta_4(self.models_obj.mseir_model, y0, t, 
-                                   (params["mu"], params["delta"], params["beta"], params["sigma"], params["gamma"]))
+            self.runge_kutta_4(self.mseir_model, y0, t, 
+                        (params["mu"], params["delta"], params["beta"], params["sigma"], params["gamma"]))
         else:
-            solution = self.euler_method(self.models_obj.mseir_model, y0, t, 
-                                   (params["mu"], params["delta"], params["beta"], params["sigma"], params["gamma"]))
-            
-        M, S, E, I, R = solution
+            self.euler_method(self.mseir_model, y0, t, 
+                        (params["mu"], params["delta"], params["beta"], params["sigma"], params["gamma"]))
+
+        M, S, E, I, R = self.result
         
         ax = self.axes[plot_index]
+        ax.clear()
         ax.plot(t, M, 'b', label='Материнский иммунитет')
         ax.plot(t, S, 'g', label='Восприимчивые')
         ax.plot(t, E, 'y', label='Латентные')
         ax.plot(t, I, 'r', label='Инфицированные')
         ax.plot(t, R, 'purple', label='Выздоровевшие')
-        ax.grid()
         ax.set_ylim(0, 1)
         ax.set_xlabel('Дни')
         ax.set_ylabel('Доля населения')
         ax.grid(True)
+        ax.legend()
+        self.canvases[plot_index].draw()
 
         if return_solution:
             return {"M": M, "S": S, "E": E, "I": I, "R": R}
-    
+
     def run_siqr_model(self, t, params, initials, plot_index, return_solution=False, method="runge_kutta"):
         """Запускает SIQR модель на указанном графике"""
         y0 = [initials["S0"], initials["I0"], initials["Q0"], initials["R0"]]
 
         if method == "runge_kutta":
-            solution = self.runge_kutta_4(self.models_obj.siqr_model, y0, t, 
-                                   (params["beta"], params["gamma"], params["delta"], params["mu"]))
+            self.runge_kutta_4(self.siqr_model, y0, t, 
+                        (params["beta"], params["gamma"], params["delta"], params["mu"]))
         else:
-            solution = self.euler_method(self.models_obj.siqr_model, y0, t, 
-                                   (params["beta"], params["gamma"], params["delta"], params["mu"]))
+            self.euler_method(self.siqr_model, y0, t, 
+                        (params["beta"], params["gamma"], params["delta"], params["mu"]))
 
-        S, I, Q, R = solution
+        S, I, Q, R = self.result
         
         ax = self.axes[plot_index]
+        ax.clear()
         ax.plot(t, S, 'b', label='Восприимчивые')
         ax.plot(t, I, 'r', label='Инфицированные')
         ax.plot(t, Q, 'g', label='Изолированные')
         ax.plot(t, R, 'k', label='Выздоровевшие')
-        ax.grid()
         ax.set_ylim(0, 1)
         ax.set_xlabel('Дни')
         ax.set_ylabel('Доля населения')
         ax.grid(True)
+        ax.legend()
+        self.canvases[plot_index].draw()
 
         if return_solution:
             return {"S": S, "I": I, "Q": Q, "R": R}
-    
+
     def run_m_model(self, t, params, initials, plot_index, return_solution=False, method="runge_kutta"):
         """Запускает M-модель на указанном графике"""
         y0 = [initials["S0"]] + initials["I0"] + [initials["R0"]]
 
         if method == "runge_kutta":
-            solution = self.runge_kutta_4(self.models_obj.multi_stage_model, y0, t, 
-                                (params["beta"], params["k"], params["gamma"]))
+            self.runge_kutta_4(self.multi_stage_model, y0, t, 
+                        (params["beta"], params["k"], params["gamma"]))
         else:
-            solution = self.euler_method(self.models_obj.multi_stage_model, y0, t, 
-                                (params["beta"], params["k"], params["gamma"]))
+            self.euler_method(self.multi_stage_model, y0, t, 
+                        (params["beta"], params["k"], params["gamma"]))
+
+        solution = self.result
         
         ax = self.axes[plot_index]
+        ax.clear()
         ax.plot(t, solution[0], 'b', label='Восприимчивые')
         for j in range(len(initials["I0"])):
             ax.plot(t, solution[j+1], linestyle='dashed', label=f'I{j+1} (Стадия {j+1})')
         ax.plot(t, solution[-1], 'g', label='Выздоровевшие')
-        ax.grid()
         ax.set_ylim(0, 1)
         ax.set_xlabel('Дни')
         ax.set_ylabel('Доля населения')
         ax.grid(True)
+        ax.legend()
+        self.canvases[plot_index].draw()
         
         if return_solution:
             result = {
@@ -293,27 +311,81 @@ class EpidemicModelsTechLog:
     def __init__(self):
         pass
 
-    def load_excel_data(self):
-        """Загружает данные из Excel файла"""
+    def load_csv_country_data(self):
+        """Загружает CSV файл с данными по странам и позволяет выбрать страну и сопоставить столбцы"""
         file_path = filedialog.askopenfilename(
-            filetypes=[("Excel files", "*.xlsx *.xls"), ("All files", "*.*")]
+            filetypes=[("CSV файлы", "*.csv"), ("Все файлы", "*.*")]
         )
-        
+
         if not file_path:
             return
-        
+
         try:
-            # Читаем Excel файл
-            self.excel_data = pd.read_excel(file_path)
-            self.excel_data_columns = list(self.excel_data.columns)
-            
-            # Создаем окно для выбора столбцов
-            self.create_data_mapping_window()
-            
-            messagebox.showinfo("Успех", "Данные успешно загружены")
-            
+            df = pd.read_csv(file_path)
+            self.country_csv_data = df
+            self.excel_data = df  # Сохраняем данные для использования в моделировании
+            self.excel_data_columns = df.columns.tolist()  # Сохраняем названия столбцов
+
+            country_column = next((col for col in df.columns if 'country' in col.lower()), None)
+            if not country_column:
+                messagebox.showerror("Ошибка", "Файл должен содержать столбец со страной (например, 'Country')")
+                return
+
+            countries = sorted(df[country_column].dropna().unique().tolist())
+
+            # Выбор страны
+            country_window = tk.Toplevel(self.root)
+            country_window.title("Выбор страны")
+            country_window.geometry("300x200")
+
+            ttk.Label(country_window, text="Выберите страну:").pack(pady=10)
+            country_var = tk.StringVar()
+            cb = ttk.Combobox(country_window, textvariable=country_var, values=countries, state="readonly")
+            cb.pack(pady=10)
+
+            def apply_country():
+                selected_country = country_var.get()
+                if not selected_country:
+                    messagebox.showwarning("Предупреждение", "Выберите страну")
+                    return
+                
+                # Получаем данные для выбранной страны
+                country_data = df[df[country_column] == selected_country].iloc[0]
+                self.selected_country_data = country_data
+                
+                # Автоматически заполняем параметры моделей
+                for model_name in self.selected_models:
+                    if model_name in self.model_params:
+                        # Пример заполнения начальных условий
+                        if "Confirmed" in df.columns and "Recovered" in df.columns:
+                            total_cases = float(country_data["Confirmed"])
+                            recovered = float(country_data["Recovered"])
+                            population = 1.0  # Или реальное значение населения, если есть в данных
+                            
+                            # Заполняем начальные условия для SIR модели
+                            if model_name == "SIR":
+                                if "S0" in self.model_params[model_name]["initial_widgets"]:
+                                    self.model_params[model_name]["initial_widgets"]["S0"].delete(0, tk.END)
+                                    self.model_params[model_name]["initial_widgets"]["S0"].insert(0, str(1 - total_cases/population))
+                                
+                                if "I0" in self.model_params[model_name]["initial_widgets"]:
+                                    self.model_params[model_name]["initial_widgets"]["I0"].delete(0, tk.END)
+                                    self.model_params[model_name]["initial_widgets"]["I0"].insert(0, str((total_cases - recovered)/population))
+                                
+                                if "R0" in self.model_params[model_name]["initial_widgets"]:
+                                    self.model_params[model_name]["initial_widgets"]["R0"].delete(0, tk.END)
+                                    self.model_params[model_name]["initial_widgets"]["R0"].insert(0, str(recovered/population))
+                
+                # Автоматически запускаем моделирование
+                if hasattr(self, 'run_models'):
+                    self.run_models()
+                
+                country_window.destroy()
+
+            ttk.Button(country_window, text="Применить", command=apply_country).pack(pady=10)
+
         except Exception as e:
-            messagebox.showerror("Ошибка", f"Не удалось загрузить данные: {str(e)}")
+            messagebox.showerror("Ошибка", f"Не удалось загрузить CSV: {str(e)}")
 
     def create_data_mapping_window(self):
         """Создает окно для сопоставления столбцов из Excel с параметрами модели"""
@@ -401,18 +473,40 @@ class EpidemicModelsTechLog:
                             for param, widget in self.model_params[model_name]["initial_widgets"].items():
                                 if param in mappings:
                                     col_name = mappings[param]
-                                    value = self.excel_data[col_name].iloc[0]
-                                    
-                                    if isinstance(widget, list):
-                                        # Для списков значений (например, нескольких стадий)
-                                        for i, entry in enumerate(widget):
-                                            if i < len(value):
-                                                entry.delete(0, tk.END)
-                                                entry.insert(0, str(value[i]))
+                                    # Получаем источник данных: либо выбранная страна из CSV, либо первая строка из Excel
+                                    if hasattr(self, 'selected_country_data'):
+                                        source = self.selected_country_data
                                     else:
-                                        # Для одиночных значений
-                                        widget.delete(0, tk.END)
-                                        widget.insert(0, str(value))
+                                        source = self.excel_data.iloc[0]
+
+                                    # Получаем население, если есть
+                                    population = 1.0
+                                    if 'Population' in source:
+                                        try:
+                                            population = float(str(source['Population']).replace(',', '').strip())
+                                        except:
+                                            pass
+
+                                    # Обновляем значения
+                                    for param, widget in self.model_params[model_name]["initial_widgets"].items():
+                                        if param in mappings:
+                                            col_name = mappings[param]
+                                            raw_value = source[col_name]
+
+                                            try:
+                                                normalized_value = float(raw_value) / population
+                                            except:
+                                                normalized_value = 0.0
+
+                                            if isinstance(widget, list):
+                                                for i, entry in enumerate(widget):
+                                                    if i == 0:
+                                                        entry.delete(0, tk.END)
+                                                        entry.insert(0, str(normalized_value))
+                                            else:
+                                                widget.delete(0, tk.END)
+                                                widget.insert(0, str(normalized_value))
+
             
             messagebox.showinfo("Успех", "Данные успешно применены")
             
@@ -658,8 +752,9 @@ class EpidemicModelsApp(EpidemicModelsTechLog, EpidemicModels):
         ttk.Button(left_frame, text="Запустить моделирование", 
                   command=self.run_models).pack(pady=10)
         
-        ttk.Button(left_frame, text="Загрузить данные из Excel", 
-                 command=self.load_excel_data).pack(pady=5)
+        ttk.Button(left_frame, text="Загрузить данные из файла", 
+           command=self.load_csv_country_data).pack(pady=5)
+
         
         self.excel_data = None
         self.excel_data_columns = []
