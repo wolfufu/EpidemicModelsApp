@@ -51,6 +51,9 @@ class EpidemicModels(NumericalMethods):
     def __init__(self):
         self.current_models = []
         self.numeric_methods = []
+        self.axes = []
+        self.canvases = []
+        self.figs = []
 
     def sir_model(self, y, t, beta, gamma):
         S, I, R = y
@@ -309,209 +312,10 @@ class EpidemicModels(NumericalMethods):
     
 class EpidemicModelsTechLog:
     def __init__(self):
-        pass
-
-    def load_csv_country_data(self):
-        """Загружает CSV файл с данными по странам и позволяет выбрать страну и сопоставить столбцы"""
-        file_path = filedialog.askopenfilename(
-            filetypes=[("CSV файлы", "*.csv"), ("Все файлы", "*.*")]
-        )
-
-        if not file_path:
-            return
-
-        try:
-            df = pd.read_csv(file_path)
-            self.country_csv_data = df
-            self.excel_data = df  # Сохраняем данные для использования в моделировании
-            self.excel_data_columns = df.columns.tolist()  # Сохраняем названия столбцов
-
-            country_column = next((col for col in df.columns if 'country' in col.lower()), None)
-            if not country_column:
-                messagebox.showerror("Ошибка", "Файл должен содержать столбец со страной (например, 'Country')")
-                return
-
-            countries = sorted(df[country_column].dropna().unique().tolist())
-
-            # Выбор страны
-            country_window = tk.Toplevel(self.root)
-            country_window.title("Выбор страны")
-            country_window.geometry("300x200")
-
-            ttk.Label(country_window, text="Выберите страну:").pack(pady=10)
-            country_var = tk.StringVar()
-            cb = ttk.Combobox(country_window, textvariable=country_var, values=countries, state="readonly")
-            cb.pack(pady=10)
-
-            def apply_country():
-                selected_country = country_var.get()
-                if not selected_country:
-                    messagebox.showwarning("Предупреждение", "Выберите страну")
-                    return
-                
-                # Получаем данные для выбранной страны
-                country_data = df[df[country_column] == selected_country].iloc[0]
-                self.selected_country_data = country_data
-                
-                # Автоматически заполняем параметры моделей
-                for model_name in self.selected_models:
-                    if model_name in self.model_params:
-                        # Пример заполнения начальных условий
-                        if "Confirmed" in df.columns and "Recovered" in df.columns:
-                            total_cases = float(country_data["Confirmed"])
-                            recovered = float(country_data["Recovered"])
-                            population = 1.0  # Или реальное значение населения, если есть в данных
-                            
-                            # Заполняем начальные условия для SIR модели
-                            if model_name == "SIR":
-                                if "S0" in self.model_params[model_name]["initial_widgets"]:
-                                    self.model_params[model_name]["initial_widgets"]["S0"].delete(0, tk.END)
-                                    self.model_params[model_name]["initial_widgets"]["S0"].insert(0, str(1 - total_cases/population))
-                                
-                                if "I0" in self.model_params[model_name]["initial_widgets"]:
-                                    self.model_params[model_name]["initial_widgets"]["I0"].delete(0, tk.END)
-                                    self.model_params[model_name]["initial_widgets"]["I0"].insert(0, str((total_cases - recovered)/population))
-                                
-                                if "R0" in self.model_params[model_name]["initial_widgets"]:
-                                    self.model_params[model_name]["initial_widgets"]["R0"].delete(0, tk.END)
-                                    self.model_params[model_name]["initial_widgets"]["R0"].insert(0, str(recovered/population))
-                
-                # Автоматически запускаем моделирование
-                if hasattr(self, 'run_models'):
-                    self.run_models()
-                
-                country_window.destroy()
-
-            ttk.Button(country_window, text="Применить", command=apply_country).pack(pady=10)
-
-        except Exception as e:
-            messagebox.showerror("Ошибка", f"Не удалось загрузить CSV: {str(e)}")
-
-    def create_data_mapping_window(self):
-        """Создает окно для сопоставления столбцов из Excel с параметрами модели"""
-        if self.excel_data is None:
-            return
-        
-        mapping_window = tk.Toplevel(self.root)
-        mapping_window.title("Сопоставление данных")
-        mapping_window.geometry("500x400")
-        
-        # Фрейм для выбора модели
-        model_frame = ttk.LabelFrame(mapping_window, text="Выберите модель для сопоставления")
-        model_frame.pack(fill=tk.X, padx=5, pady=5)
-        
-        model_var = tk.StringVar()
-        model_combobox = ttk.Combobox(model_frame, textvariable=model_var, 
-                                    values=list(self.available_models.keys()))
-        model_combobox.pack(fill=tk.X, padx=5, pady=5)
-        
-        # Фрейм для сопоставления столбцов
-        mapping_frame = ttk.LabelFrame(mapping_window, text="Сопоставьте столбцы")
-        mapping_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-        
-        # Получаем параметры модели при выборе
-        def update_mappings(event):
-            # Очищаем предыдущие сопоставления
-            for widget in mapping_frame.winfo_children():
-                widget.destroy()
-            
-            model_name = model_var.get()
-            if not model_name:
-                return
-            
-            model_params = self.available_models[model_name]["params"]
-            initial_params = model_params["initial"]
-            
-            self.mapping_widgets = {}
-            
-            row = 0
-            for param, info in initial_params.items():
-                ttk.Label(mapping_frame, text=info["name"]).grid(row=row, column=0, sticky="w", padx=5, pady=2)
-                
-                var = tk.StringVar()
-                cb = ttk.Combobox(mapping_frame, textvariable=var, 
-                                  values=[""] + self.excel_data_columns)
-                cb.grid(row=row, column=1, sticky="ew", padx=5, pady=2)
-                
-                self.mapping_widgets[param] = var
-                row += 1
-            
-            # Кнопка применения
-            ttk.Button(mapping_frame, text="Применить", 
-                      command=lambda: self.apply_data_mapping(model_name)).grid(
-                      row=row, column=0, columnspan=2, pady=10)
-        
-        model_combobox.bind("<<ComboboxSelected>>", update_mappings)
-        
-    def apply_data_mapping(self, model_name):
-        """Применяет сопоставление данных к выбранной модели"""
-        try:
-            mappings = {}
-            for param, var in self.mapping_widgets.items():
-                col_name = var.get()
-                if col_name:
-                    mappings[param] = col_name
-            
-            if not mappings:
-                messagebox.showwarning("Предупреждение", "Не выбрано ни одного сопоставления")
-                return
-            
-            # Обновляем начальные условия в интерфейсе
-            model_info = self.available_models[model_name]
-            initial_params = model_info["params"]["initial"]
-            
-            # Находим вкладку с параметрами модели
-            for tab_id in self.params_notebook.tabs():
-                if self.params_notebook.tab(tab_id, "text") == model_name:
-                    # Находим вкладку с начальными условиями
-                    notebook = self.params_notebook.nametowidget(tab_id).winfo_children()[0]
-                    for inner_tab_id in notebook.tabs():
-                        if notebook.tab(inner_tab_id, "text") == "Начальные условия":
-                            initial_tab = notebook.nametowidget(inner_tab_id)
-                            
-                            # Обновляем значения
-                            for param, widget in self.model_params[model_name]["initial_widgets"].items():
-                                if param in mappings:
-                                    col_name = mappings[param]
-                                    # Получаем источник данных: либо выбранная страна из CSV, либо первая строка из Excel
-                                    if hasattr(self, 'selected_country_data'):
-                                        source = self.selected_country_data
-                                    else:
-                                        source = self.excel_data.iloc[0]
-
-                                    # Получаем население, если есть
-                                    population = 1.0
-                                    if 'Population' in source:
-                                        try:
-                                            population = float(str(source['Population']).replace(',', '').strip())
-                                        except:
-                                            pass
-
-                                    # Обновляем значения
-                                    for param, widget in self.model_params[model_name]["initial_widgets"].items():
-                                        if param in mappings:
-                                            col_name = mappings[param]
-                                            raw_value = source[col_name]
-
-                                            try:
-                                                normalized_value = float(raw_value) / population
-                                            except:
-                                                normalized_value = 0.0
-
-                                            if isinstance(widget, list):
-                                                for i, entry in enumerate(widget):
-                                                    if i == 0:
-                                                        entry.delete(0, tk.END)
-                                                        entry.insert(0, str(normalized_value))
-                                            else:
-                                                widget.delete(0, tk.END)
-                                                widget.insert(0, str(normalized_value))
-
-            
-            messagebox.showinfo("Успех", "Данные успешно применены")
-            
-        except Exception as e:
-            messagebox.showerror("Ошибка", f"Не удалось применить данные: {str(e)}")
+        self.file_data = None
+        self.date_column = None
+        self.data_start_date = None
+        self.data_end_date = None
 
     def export_results(self):
         """Экспортирует результаты моделирования в Excel-файлы и упаковывает в ZIP-архив"""
@@ -588,21 +392,297 @@ class EpidemicModelsTechLog:
                         os.rmdir(os.path.join(root, name))
                 os.rmdir(temp_dir)
 
+    def load_csv_country_data(self):
+        """Загружает CSV файл с данными по странам и позволяет выбрать страну и сопоставить столбцы"""
+        # Проверяем, есть ли выбранные модели
+        if len(self.selected_models) > 0:
+            messagebox.showwarning("Предупреждение", 
+                                "Пожалуйста, сначала удалите все выбранные модели перед загрузкой данных")
+            return
+
+        file_path = filedialog.askopenfilename(
+            filetypes=[("CSV файлы", "*.csv"), ("Все файлы", "*.*")]
+        )
+
+        if not file_path:
+            return
+
+        try:
+            df = pd.read_csv(file_path)
+            
+            # Удаляем строки с NaN в датах
+            df = df.dropna(subset=['Date'])  # Замените 'Date' на фактическое название столбца с датами
+            
+            self.file_data = df
+            
+            # Автоматически ищем столбец с датами
+            date_col = None
+            for col in df.columns:
+                if 'date' in col.lower():
+                    date_col = col
+                    break
+            
+            if not date_col:
+                messagebox.showerror("Ошибка", "Не найден столбец с датами в файле")
+                return
+                
+            self.date_column = date_col
+            
+            # Преобразуем даты, игнорируя ошибки
+            df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
+            
+            # Удаляем строки с невалидными датами
+            df = df.dropna(subset=[date_col])
+            
+            # Проверяем, остались ли данные
+            if df.empty:
+                messagebox.showerror("Ошибка", "Нет валидных данных после обработки")
+                return
+                
+            # Определяем диапазон дат
+            self.data_start_date = df[date_col].min()
+            self.data_end_date = df[date_col].max()
+            
+            # Ищем столбец с названиями стран
+            country_col = None
+            for col in df.columns:
+                if 'country' in col.lower() or 'region' in col.lower():
+                    country_col = col
+                    break
+            
+            if not country_col:
+                messagebox.showerror("Ошибка", "Не найден столбец с названиями стран/регионов")
+                return
+            
+            # Создаем окно для выбора страны
+            country_window = tk.Toplevel(self.root)
+            country_window.title("Выбор страны/региона")
+            country_window.geometry("400x200")
+            
+            ttk.Label(country_window, text="Выберите страну/регион:").pack(pady=10)
+            
+            # Получаем уникальные страны/регионы, удаляя NaN
+            countries = [c for c in df[country_col].unique() if pd.notna(c)]
+            if not countries:
+                messagebox.showerror("Ошибка", "Не найдено валидных стран/регионов")
+                return
+                
+            self.country_var = tk.StringVar()
+            country_combobox = ttk.Combobox(country_window, textvariable=self.country_var, values=countries)
+            country_combobox.pack(pady=5)
+            
+            ttk.Button(country_window, text="Применить", 
+                    command=lambda: self.on_country_selected(country_window, country_col)).pack(pady=10)
+            
+        except Exception as e:
+            messagebox.showerror("Ошибка", f"Не удалось загрузить CSV: {str(e)}")
+
+    def on_country_selected(self, window, country_col):
+        """Обрабатывает выбор страны и переходит к выбору дат"""
+        selected_country = self.country_var.get()
+        if not selected_country:
+            messagebox.showwarning("Предупреждение", "Пожалуйста, выберите страну/регион")
+            return
+        
+        try:
+            # Фильтруем данные по выбранной стране
+            self.file_data = self.file_data[self.file_data[country_col] == selected_country]
+            
+            # Убедимся, что данные не пустые
+            if self.file_data.empty:
+                messagebox.showerror("Ошибка", f"Нет данных для страны: {selected_country}")
+                return
+                
+            # Обновляем диапазон дат после фильтрации
+            self.data_start_date = self.file_data[self.date_column].min()
+            self.data_end_date = self.file_data[self.date_column].max()
+            
+            # Проверяем, что даты валидны
+            if pd.isna(self.data_start_date) or pd.isna(self.data_end_date):
+                messagebox.showerror("Ошибка", "Не удалось определить валидный диапазон дат")
+                return
+                
+            window.destroy()
+            
+            # Теперь показываем окно выбора дат
+            self.update_date_selection_ui()
+        
+        except Exception as e:
+            messagebox.showerror("Ошибка", f"Ошибка при обработке данных: {str(e)}")
+    
+    def update_date_selection_ui(self):
+        """Обновляет интерфейс выбора дат на основе загруженных данных"""
+        if not self.data_start_date or not self.data_end_date:
+            return
+            
+        # Создаем новое окно для выбора диапазона дат
+        date_window = tk.Toplevel(self.root)
+        date_window.title("Выбор временного диапазона")
+        date_window.geometry("400x300")
+        
+        ttk.Label(date_window, text=f"Данные доступны с {self.data_start_date.date()} по {self.data_end_date.date()}").pack(pady=10)
+        
+        # Фрейм для исторических данных
+        hist_frame = ttk.LabelFrame(date_window, text="Исторические данные")
+        hist_frame.pack(fill=tk.X, padx=10, pady=5)
+        
+        ttk.Label(hist_frame, text="Начальная дата:").pack()
+        self.hist_start_entry = DateEntry(
+            hist_frame,
+            width=12,
+            background='darkblue',
+            foreground='white',
+            borderwidth=2,
+            date_pattern='dd.mm.yyyy'
+        )
+        self.hist_start_entry.pack()
+        self.hist_start_entry.set_date(self.data_start_date)
+        
+        ttk.Label(hist_frame, text="Конечная дата:").pack()
+        self.hist_end_entry = DateEntry(
+            hist_frame,
+            width=12,
+            background='darkblue',
+            foreground='white',
+            borderwidth=2,
+            date_pattern='dd.mm.yyyy'
+        )
+        self.hist_end_entry.pack()
+        self.hist_end_entry.set_date(self.data_end_date)
+        
+        # Фрейм для прогнозирования
+        pred_frame = ttk.LabelFrame(date_window, text="Прогнозирование")
+        pred_frame.pack(fill=tk.X, padx=10, pady=5)
+        
+        ttk.Label(pred_frame, text="Конечная дата прогноза:").pack()
+        self.pred_end_entry = DateEntry(
+            pred_frame,
+            width=12,
+            background='darkblue',
+            foreground='white',
+            borderwidth=2,
+            date_pattern='dd.mm.yyyy'
+        )
+        self.pred_end_entry.pack()
+        self.pred_end_entry.set_date(self.data_end_date + timedelta(days=30))
+        
+        def apply_and_close():
+            self.apply_date_selection(date_window)
+        
+        ttk.Button(date_window, text="Применить", command=apply_and_close).pack(pady=10)
+    
+    def apply_date_selection(self, window):
+        """Применяет выбранные даты и закрывает окно"""
+        try:
+            self.hist_start_date = self.hist_start_entry.get_date()
+            self.hist_end_date = self.hist_end_entry.get_date()
+            self.pred_end_date = self.pred_end_entry.get_date()
+            
+            if self.hist_start_date >= self.hist_end_date:
+                messagebox.showerror("Ошибка", "Конечная дата исторических данных должна быть позже начальной")
+                return
+                
+            if self.hist_end_date >= self.pred_end_date:
+                messagebox.showerror("Ошибка", "Дата прогноза должна быть позже конечной даты исторических данных")
+                return
+                
+            window.destroy()
+            
+            # Заполняем начальные условия из данных
+            last_row = self.file_data.iloc[-1]
+            self.fill_initial_conditions_from_data(last_row)
+            
+            # Сообщаем пользователю, что можно добавлять модели
+            messagebox.showinfo("Информация", "Теперь вы можете добавить модели для анализа данных")
+            
+        except Exception as e:
+            messagebox.showerror("Ошибка", f"Ошибка при выборе дат: {str(e)}")
+
+    def model_selected(self, var):
+        """Обработчик выбора модели"""
+        model_name = var.get()
+        if not model_name:
+            return
+        
+        for v in self.model_vars:
+            if v != var and v.get() == model_name:
+                messagebox.showwarning("Предупреждение", "Эта модель уже выбрана")
+                var.set("")
+                return
+        
+        if model_name not in self.selected_models:
+            self.selected_models.append(model_name)
+            self.update_params_notebook()
+        
+        self.update_plots_visibility()
+        
+        # После выбора модели автоматически запускаем моделирование
+        if hasattr(self, 'file_data') and self.file_data is not None:
+            self.run_models_with_historical_data()
+
+    
+
+    def fill_initial_conditions_from_data(self, last_row):
+        """Заполняет начальные условия на основе данных из файла"""
+        if not hasattr(self, 'model_params'):
+            return
+            
+        # Попробуем найти столбцы с нужными данными
+        confirmed_col = next((col for col in last_row.index if 'confirmed' in col.lower()), None)
+        recovered_col = next((col for col in last_row.index if 'recovered' in col.lower()), None)
+        deaths_col = next((col for col in last_row.index if 'death' in col.lower()), None)
+        population_col = next((col for col in last_row.index if 'population' in col.lower()), None)
+        
+        # Если нашли население - используем, иначе считаем популяцию = 1
+        population = 1.0
+        if population_col:
+            try:
+                population = float(last_row[population_col])
+            except:
+                pass
+                
+        # Заполняем начальные условия для всех моделей
+        for model_name in self.model_params:
+            if model_name == "SIR":
+                if confirmed_col and recovered_col:
+                    confirmed = float(last_row[confirmed_col])
+                    recovered = float(last_row[recovered_col])
+                    
+                    # Нормализуем до 1.0
+                    infected = (confirmed - recovered) / population
+                    recovered = recovered / population
+                    susceptible = 1 - infected - recovered
+                    
+                    # Заполняем поля
+                    if "S0" in self.model_params[model_name]["initial_widgets"]:
+                        self.model_params[model_name]["initial_widgets"]["S0"].delete(0, tk.END)
+                        self.model_params[model_name]["initial_widgets"]["S0"].insert(0, str(susceptible))
+                    
+                    if "I0" in self.model_params[model_name]["initial_widgets"]:
+                        self.model_params[model_name]["initial_widgets"]["I0"].delete(0, tk.END)
+                        self.model_params[model_name]["initial_widgets"]["I0"].insert(0, str(infected))
+                    
+                    if "R0" in self.model_params[model_name]["initial_widgets"]:
+                        self.model_params[model_name]["initial_widgets"]["R0"].delete(0, tk.END)
+                        self.model_params[model_name]["initial_widgets"]["R0"].insert(0, str(recovered))
+
 class EpidemicModelsApp(EpidemicModelsTechLog, EpidemicModels):
     def __init__(self, root):
+        EpidemicModelsTechLog.__init__(self)  # Initialize TechLog parent
+        EpidemicModels.__init__(self)         # Initialize Models parent
         self.root = root
         self.root.title("Моделирование эпидемий")
         self.root.geometry("1400x800")
         
         self.models_obj = EpidemicModels()
         self.available_models = {
-            "SIR": {"name": "SIR-модель", "func": self.models_obj.sir_model, "params": self.get_model_parameters("sir_model")},
-            "SI": {"name": "SI-модель", "func": self.models_obj.si_model, "params": self.get_model_parameters("si_model")},
-            "SIRS": {"name": "SIRS-модель", "func": self.models_obj.sirs_model, "params": self.get_model_parameters("sirs_model")},
-            "SEIR": {"name": "SEIR-модель", "func": self.models_obj.seir_model, "params": self.get_model_parameters("seir_model")},
-            "MSEIR": {"name": "MSEIR-модель", "func": self.models_obj.mseir_model, "params": self.get_model_parameters("mseir_model")},
-            "SIQR": {"name": "SIQR-модель", "func": self.models_obj.siqr_model, "params": self.get_model_parameters("siqr")},
-            "M-модель": {"name": "M-модель", "func": self.models_obj.multi_stage_model, "params": self.get_model_parameters("m_model")}
+            "SIR": {"name": "SIR-модель", "func": self.sir_model, "params": self.get_model_parameters("sir_model")},
+            "SI": {"name": "SI-модель", "func": self.si_model, "params": self.get_model_parameters("si_model")},
+            "SIRS": {"name": "SIRS-модель", "func": self.sirs_model, "params": self.get_model_parameters("sirs_model")},
+            "SEIR": {"name": "SEIR-модель", "func": self.seir_model, "params": self.get_model_parameters("seir_model")},
+            "MSEIR": {"name": "MSEIR-модель", "func": self.mseir_model, "params": self.get_model_parameters("mseir_model")},
+            "SIQR": {"name": "SIQR-модель", "func": self.siqr_model, "params": self.get_model_parameters("siqr")},
+            "M-модель": {"name": "M-модель", "func": self.multi_stage_model, "params": self.get_model_parameters("m_model")}
         }
         
         self.selected_models = []
@@ -611,6 +691,152 @@ class EpidemicModelsApp(EpidemicModelsTechLog, EpidemicModels):
         
         self.create_left_panel()
         self.create_right_panel()
+        
+        # Сразу создаем 4 поля для выбора моделей
+        for _ in range(4):
+            self.add_model_field(show_remove_button=False)
+
+    def run_models(self):
+        """Запускает моделирование с учетом исторических данных и прогноза"""
+        # Проверяем, что выбрана хотя бы одна модель
+        if len(self.selected_models) == 0:
+            messagebox.showwarning("Предупреждение", "Пожалуйста, выберите хотя бы одну модель")
+            return
+            
+        try:
+            if hasattr(self, 'file_data') and self.file_data is not None:
+                # Режим с историческими данными
+                self.run_models_with_historical_data()
+            else:
+                # Обычный режим моделирования
+                self.run_models_standard()
+                
+        except Exception as e:
+            messagebox.showerror("Ошибка", f"Ошибка при выполнении моделирования: {str(e)}")
+
+    def run_models_with_historical_data(self):
+        """Запускает моделирование с историческими данными и прогнозом"""
+        # Получаем выбранные даты
+        hist_start = self.hist_start_entry.get_date()
+        hist_end = self.hist_end_entry.get_date()
+        pred_end = self.pred_end_entry.get_date()
+        
+        # Фильтруем данные по выбранному диапазону
+        mask = (self.file_data[self.date_column] >= hist_start) & (self.file_data[self.date_column] <= hist_end)
+        hist_data = self.file_data.loc[mask]
+        
+        # Создаем временные точки для исторического периода
+        hist_days = (hist_end - hist_start).days + 1
+        t_hist = np.linspace(0, hist_days - 1, hist_days)
+        
+        # Создаем временные точки для прогноза
+        pred_days = (pred_end - hist_end).days
+        t_pred = np.linspace(hist_days, hist_days + pred_days - 1, pred_days)
+        
+        # Объединенные временные точки
+        t_total = np.concatenate([t_hist, t_pred])
+        
+        # Очищаем предыдущие результаты
+        self.model_results = {}
+        
+        for ax in self.axes:
+            ax.clear()
+        
+        for i, model_name in enumerate(self.selected_models):
+            if i >= 4:  # Не больше 4 моделей
+                break
+            
+            params = self.get_parameter_values(model_name)
+            initials = self.get_initial_values(model_name)
+            
+            # Сохраняем параметры и начальные условия
+            model_data = {
+                "parameters": params,
+                "initial_conditions": initials,
+                "time_points": t_total,
+                "solution": None,
+                "graph": None
+            }
+            
+            # Запускаем модель для прогноза
+            if model_name == "SI":
+                solution_pred = self.run_si_model(t_pred, params, initials, i, return_solution=True, method=self.method_var.get())
+            elif model_name == "SIR":
+                solution_pred = self.run_sir_model(t_pred, params, initials, i, return_solution=True, method=self.method_var.get())
+            elif model_name == "SIRS":
+                solution_pred = self.run_sir_model(t_pred, params, initials, i, return_solution=True, method=self.method_var.get())
+            elif model_name == "SIQR":
+                solution_pred = self.run_sir_model(t_pred, params, initials, i, return_solution=True, method=self.method_var.get())   
+            elif model_name == "SIER":
+                solution_pred = self.run_sir_model(t_pred, params, initials, i, return_solution=True, method=self.method_var.get())        
+            elif model_name == "MSEIR":
+                solution_pred = self.run_sir_model(t_pred, params, initials, i, return_solution=True, method=self.method_var.get())        
+            elif model_name == "M-model":
+                solution_pred = self.run_sir_model(t_pred, params, initials, i, return_solution=True, method=self.method_var.get())
+
+
+            # Объединяем исторические данные и прогноз
+            full_solution = {}
+            for key in solution_pred.keys():
+                # Создаем массив для всех точек
+                full_solution[key] = np.zeros(len(t_total))
+                
+                # Заполняем историческую часть (здесь нужно адаптировать под ваши данные)
+                # Например, если у вас есть столбец 'infected' в данных:
+                if key == "I" and 'infected' in hist_data.columns:
+                    full_solution[key][:len(t_hist)] = hist_data['infected'].values / hist_data['infected'].max()
+                
+                # Заполняем прогнозную часть
+                full_solution[key][len(t_hist):] = solution_pred[key]
+            
+            # Сохраняем полное решение
+            model_data["solution"] = full_solution
+            
+            # Обновляем график
+            ax = self.axes[i]
+            ax.clear()
+            
+            # Рисуем исторические данные
+            if 'S' in full_solution:
+                ax.plot(t_hist, full_solution['S'][:len(t_hist)], 'b', label='Восприимчивые (данные)')
+                ax.plot(t_pred, full_solution['S'][len(t_hist):], 'b--', label='Восприимчивые (прогноз)')
+            
+            if 'I' in full_solution:
+                ax.plot(t_hist, full_solution['I'][:len(t_hist)], 'r', label='Инфицированные (данные)')
+                ax.plot(t_pred, full_solution['I'][len(t_hist):], 'r--', label='Инфицированные (прогноз)')
+
+            if 'R' in full_solution:
+                ax.plot(t_hist, full_solution['R'][:len(t_hist)], 'r', label='Выздоровевшие (данные)')
+                ax.plot(t_pred, full_solution['R'][len(t_hist):], 'r--', label='Выздоровевшие (прогноз)')
+
+            if 'E' in full_solution:
+                ax.plot(t_hist, full_solution['E'][:len(t_hist)], 'r', label='Латентные (данные)')
+                ax.plot(t_pred, full_solution['E'][len(t_hist):], 'r--', label='Латентные (прогноз)')
+
+            if 'Q' in full_solution:
+                ax.plot(t_hist, full_solution['Q'][:len(t_hist)], 'r', label='Изолированные (данные)')
+                ax.plot(t_pred, full_solution['Q'][len(t_hist):], 'r--', label='Изолированные (прогноз)')
+
+            if 'M' in full_solution:
+                ax.plot(t_hist, full_solution['M'][:len(t_hist)], 'r', label='Иммунные (данные)')
+                ax.plot(t_pred, full_solution['M'][len(t_hist):], 'r--', label='Иммунные (прогноз)')
+                        
+            ax.axvline(x=t_hist[-1], color='gray', linestyle='--', label='Начало прогноза')
+            ax.set_ylim(0, 1)
+            ax.set_xlabel('Дни')
+            ax.set_ylabel('Доля населения')
+            ax.grid(True)
+            ax.legend()
+            self.canvases[i].draw()
+            
+            # Сохраняем график
+            buf = BytesIO()
+            self.figs[i].savefig(buf, format='png')
+            buf.seek(0)
+            model_data["graph"] = buf
+            
+            # Добавляем в результаты
+            self.model_results[model_name] = model_data
         
     def get_model_parameters(self, model_name):
         """Возвращает параметры для конкретной модели"""
@@ -702,15 +928,11 @@ class EpidemicModelsApp(EpidemicModelsTechLog, EpidemicModels):
         left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=False, padx=5, pady=5)
         left_frame.pack_propagate(False)
             
-        model_frame = ttk.LabelFrame(left_frame, text="Выбор моделей (до 4)", padding=10)
+        model_frame = ttk.LabelFrame(left_frame, text="Выбор моделей", padding=10)
         model_frame.pack(fill=tk.X, pady=5)
         
         self.models_container = ttk.Frame(model_frame)
         self.models_container.pack(fill=tk.X)
-        
-        self.add_button = ttk.Button(model_frame, text="+ Добавить модель", 
-                                   command=lambda: self.add_model_field(show_remove_button=True), state=tk.NORMAL)
-        self.add_button.pack(pady=5)
         
         date_frame = ttk.LabelFrame(left_frame, text="Диапазон дат", padding=10)
         date_frame.pack(fill=tk.X, pady=5)
@@ -819,7 +1041,7 @@ class EpidemicModelsApp(EpidemicModelsTechLog, EpidemicModels):
         
         if show_remove_button:
             btn = ttk.Button(frame, text="×", width=2, 
-                           command=lambda: self.remove_model_field(frame, var))
+                        command=lambda: self.remove_model_field(frame, var))
             btn.pack(side=tk.RIGHT)
         else:
             ttk.Label(frame, width=2).pack(side=tk.RIGHT)
@@ -828,11 +1050,6 @@ class EpidemicModelsApp(EpidemicModelsTechLog, EpidemicModels):
         
         self.model_vars.append(var)
         self.model_widgets.append({"frame": frame, "combobox": cb, "button": btn if show_remove_button else None})
-        
-        if len(self.model_widgets) >= 4:
-            self.add_button.config(state=tk.DISABLED)
-        else:
-            self.add_button.config(state=tk.NORMAL)
     
     def remove_model_field(self, frame, var):
         """Удаляет поле выбора модели"""
@@ -848,9 +1065,6 @@ class EpidemicModelsApp(EpidemicModelsTechLog, EpidemicModels):
                 break
         
         frame.destroy()
-        
-        if len(self.model_widgets) < 4:
-            self.add_button.config(state=tk.NORMAL)
         
         self.update_plots_visibility()
     
@@ -1006,7 +1220,7 @@ class EpidemicModelsApp(EpidemicModelsTechLog, EpidemicModels):
                         initials[param] = 0.0
         return initials
     
-    def run_models(self):
+    def run_models_standard(self):
         """Запускает все выбранные модели и сохраняет результаты для экспорта"""
         try:
             start_date = self.start_date_entry.get_date()
