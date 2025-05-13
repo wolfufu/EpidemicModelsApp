@@ -9,10 +9,11 @@ import pandas as pd
 import os
 import zipfile
 from io import BytesIO
+import re
 
 class NumericalMethods:
     def __init__(self):
-        result = None
+        self.result = None
 
     def euler_method(self, model_func, y0, t, args):
         """Реализация метода Эйлера для решения СДУ"""
@@ -23,7 +24,6 @@ class NumericalMethods:
             dt = t[i] - t[i-1]
             dy = model_func(y[i-1], t[i-1], *args)
             y[i] = y[i-1] + dy * dt
-        print(y.T)
         self.result = y.T
     
     def runge_kutta_4(self, model_func, y0, t, args):
@@ -41,10 +41,7 @@ class NumericalMethods:
             k4 = model_func(y[i-1] + h*k3, t[i-1] + h, *args)
             
             y[i] = y[i-1] + (h/6.0)*(k1 + 2*k2 + 2*k3 + k4)
-
-            print(y)
         
-        print(y)
         self.result = y.T
 
 class EpidemicModels(NumericalMethods):
@@ -309,993 +306,526 @@ class EpidemicModels(NumericalMethods):
                 result[f"I{j+1}"] = solution[j+1]
             
             return result
+
+class ValidatedEntry(ttk.Entry):
+    def __init__(self, master=None, **kwargs):
+        self.validate_command = kwargs.pop('validate', None)
+        super().__init__(master, **kwargs)
+        vcmd = (self.register(self.validate), '%P')
+        self.configure(validate='key', validatecommand=vcmd)
     
-class EpidemicModelsTechLog:
-    def __init__(self):
-        self.file_data = None
-        self.date_column = None
-        self.data_start_date = None
-        self.data_end_date = None
+    def validate(self, value):
+        if self.validate_command:
+            return self.validate_command(value)
+        return True
 
-    def export_results(self):
-        """Экспортирует результаты моделирования в Excel-файлы и упаковывает в ZIP-архив"""
-        if not hasattr(self, 'model_results') or not self.model_results:
-            messagebox.showwarning("Предупреждение", "Сначала выполните моделирование")
-            return
-        
-        # Запрашиваем место сохранения
-        file_path = filedialog.asksaveasfilename(
-            defaultextension=".zip",
-            filetypes=[("ZIP архив", "*.zip")],
-            title="Сохранить результаты моделирования"
-        )
-        
-        if not file_path:
-            return  # Пользователь отменил сохранение
-        
-        try:
-            temp_dir = "temp_epidemic_models"
-            os.makedirs(temp_dir, exist_ok=True)
-            
-            for model_name, data in self.model_results.items():
-                # Создаем Excel-файл
-                excel_file = os.path.join(temp_dir, f"{model_name}.xlsx")
-                
-                with pd.ExcelWriter(excel_file, engine='xlsxwriter') as writer:
-                    # Лист с параметрами
-                    params_df = pd.DataFrame.from_dict(data["parameters"], orient='index', columns=['Значение'])
-                    params_df.index.name = 'Параметр'
-                    params_df.to_excel(writer, sheet_name='Параметры')
-                    
-                    # Лист с начальными условиями
-                    initials_df = pd.DataFrame.from_dict(data["initial_conditions"], orient='index', columns=['Значение'])
-                    initials_df.index.name = 'Переменная'
-                    initials_df.to_excel(writer, sheet_name='Начальные условия')
-                    
-                    # Лист с решением
-                    solution_df = pd.DataFrame(data["solution"])
-                    solution_df.index = data["time_points"]
-                    solution_df.index.name = 'День'
-                    solution_df.to_excel(writer, sheet_name='Решение')
-                    
-                    workbook = writer.book
-                    worksheet = workbook.add_worksheet('График')
-                    
-                    # Вставляем изображение
-                    data["graph"].seek(0)
-                    worksheet.insert_image('B2', f"{model_name}_graph.png", {'image_data': data["graph"]})
-            
-            # Создаем ZIP-архив
-            with zipfile.ZipFile(file_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-                for root, dirs, files in os.walk(temp_dir):
-                    for file in files:
-                        zipf.write(os.path.join(root, file), file)
-            
-            # Удаляем временную папку
-            for root, dirs, files in os.walk(temp_dir, topdown=False):
-                for name in files:
-                    os.remove(os.path.join(root, name))
-                for name in dirs:
-                    os.rmdir(os.path.join(root, name))
-            os.rmdir(temp_dir)
-            
-            messagebox.showinfo("Успех", f"Результаты успешно экспортированы в {file_path}")
-            
-        except Exception as e:
-            messagebox.showerror("Ошибка", f"Ошибка при экспорте результатов: {str(e)}")
-            # Удаляем временную папку в случае ошибки
-            if os.path.exists(temp_dir):
-                for root, dirs, files in os.walk(temp_dir, topdown=False):
-                    for name in files:
-                        os.remove(os.path.join(root, name))
-                    for name in dirs:
-                        os.rmdir(os.path.join(root, name))
-                os.rmdir(temp_dir)
-
-    def load_csv_country_data(self):
-        """Загружает CSV файл с данными по странам и позволяет выбрать страну и сопоставить столбцы"""
-        # Проверяем, есть ли выбранные модели
-        if len(self.selected_models) > 0:
-            messagebox.showwarning("Предупреждение", 
-                                "Пожалуйста, сначала удалите все выбранные модели перед загрузкой данных")
-            return
-
-        file_path = filedialog.askopenfilename(
-            filetypes=[("CSV файлы", "*.csv"), ("Все файлы", "*.*")]
-        )
-
-        if not file_path:
-            return
-
-        try:
-            df = pd.read_csv(file_path)
-            
-            # Удаляем строки с NaN в датах
-            df = df.dropna(subset=['Date'])  # Замените 'Date' на фактическое название столбца с датами
-            
-            self.file_data = df
-            
-            # Автоматически ищем столбец с датами
-            date_col = None
-            for col in df.columns:
-                if 'date' in col.lower():
-                    date_col = col
-                    break
-            
-            if not date_col:
-                messagebox.showerror("Ошибка", "Не найден столбец с датами в файле")
-                return
-                
-            self.date_column = date_col
-            
-            # Преобразуем даты, игнорируя ошибки
-            df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
-            
-            # Удаляем строки с невалидными датами
-            df = df.dropna(subset=[date_col])
-            
-            # Проверяем, остались ли данные
-            if df.empty:
-                messagebox.showerror("Ошибка", "Нет валидных данных после обработки")
-                return
-                
-            # Определяем диапазон дат
-            self.data_start_date = df[date_col].min()
-            self.data_end_date = df[date_col].max()
-            
-            # Ищем столбец с названиями стран
-            country_col = None
-            for col in df.columns:
-                if 'country' in col.lower() or 'region' in col.lower():
-                    country_col = col
-                    break
-            
-            if not country_col:
-                messagebox.showerror("Ошибка", "Не найден столбец с названиями стран/регионов")
-                return
-            
-            # Создаем окно для выбора страны
-            country_window = tk.Toplevel(self.root)
-            country_window.title("Выбор страны/региона")
-            country_window.geometry("400x200")
-            
-            ttk.Label(country_window, text="Выберите страну/регион:").pack(pady=10)
-            
-            # Получаем уникальные страны/регионы, удаляя NaN
-            countries = [c for c in df[country_col].unique() if pd.notna(c)]
-            if not countries:
-                messagebox.showerror("Ошибка", "Не найдено валидных стран/регионов")
-                return
-                
-            self.country_var = tk.StringVar()
-            country_combobox = ttk.Combobox(country_window, textvariable=self.country_var, values=countries)
-            country_combobox.pack(pady=5)
-            
-            ttk.Button(country_window, text="Применить", 
-                    command=lambda: self.on_country_selected(country_window, country_col)).pack(pady=10)
-            
-        except Exception as e:
-            messagebox.showerror("Ошибка", f"Не удалось загрузить CSV: {str(e)}")
-
-    def on_country_selected(self, window, country_col):
-        """Обрабатывает выбор страны и переходит к выбору дат"""
-        selected_country = self.country_var.get()
-        if not selected_country:
-            messagebox.showwarning("Предупреждение", "Пожалуйста, выберите страну/регион")
-            return
-        
-        try:
-            # Фильтруем данные по выбранной стране
-            self.file_data = self.file_data[self.file_data[country_col] == selected_country]
-            
-            # Убедимся, что данные не пустые
-            if self.file_data.empty:
-                messagebox.showerror("Ошибка", f"Нет данных для страны: {selected_country}")
-                return
-                
-            # Обновляем диапазон дат после фильтрации
-            self.data_start_date = self.file_data[self.date_column].min()
-            self.data_end_date = self.file_data[self.date_column].max()
-            
-            # Проверяем, что даты валидны
-            if pd.isna(self.data_start_date) or pd.isna(self.data_end_date):
-                messagebox.showerror("Ошибка", "Не удалось определить валидный диапазон дат")
-                return
-                
-            window.destroy()
-            
-            # Теперь показываем окно выбора дат
-            self.update_date_selection_ui()
-        
-        except Exception as e:
-            messagebox.showerror("Ошибка", f"Ошибка при обработке данных: {str(e)}")
-    
-    def update_date_selection_ui(self):
-        """Обновляет интерфейс выбора дат на основе загруженных данных"""
-        if not self.data_start_date or not self.data_end_date:
-            return
-            
-        # Создаем новое окно для выбора диапазона дат
-        date_window = tk.Toplevel(self.root)
-        date_window.title("Выбор временного диапазона")
-        date_window.geometry("400x300")
-        
-        ttk.Label(date_window, text=f"Данные доступны с {self.data_start_date.date()} по {self.data_end_date.date()}").pack(pady=10)
-        
-        # Фрейм для исторических данных
-        hist_frame = ttk.LabelFrame(date_window, text="Исторические данные")
-        hist_frame.pack(fill=tk.X, padx=10, pady=5)
-        
-        ttk.Label(hist_frame, text="Начальная дата:").pack()
-        self.hist_start_entry = DateEntry(
-            hist_frame,
-            width=12,
-            background='darkblue',
-            foreground='white',
-            borderwidth=2,
-            date_pattern='dd.mm.yyyy'
-        )
-        self.hist_start_entry.pack()
-        self.hist_start_entry.set_date(self.data_start_date)
-        
-        ttk.Label(hist_frame, text="Конечная дата:").pack()
-        self.hist_end_entry = DateEntry(
-            hist_frame,
-            width=12,
-            background='darkblue',
-            foreground='white',
-            borderwidth=2,
-            date_pattern='dd.mm.yyyy'
-        )
-        self.hist_end_entry.pack()
-        self.hist_end_entry.set_date(self.data_end_date)
-        
-        # Фрейм для прогнозирования
-        pred_frame = ttk.LabelFrame(date_window, text="Прогнозирование")
-        pred_frame.pack(fill=tk.X, padx=10, pady=5)
-        
-        ttk.Label(pred_frame, text="Конечная дата прогноза:").pack()
-        self.pred_end_entry = DateEntry(
-            pred_frame,
-            width=12,
-            background='darkblue',
-            foreground='white',
-            borderwidth=2,
-            date_pattern='dd.mm.yyyy'
-        )
-        self.pred_end_entry.pack()
-        self.pred_end_entry.set_date(self.data_end_date + timedelta(days=30))
-        
-        def apply_and_close():
-            self.apply_date_selection(date_window)
-        
-        ttk.Button(date_window, text="Применить", command=apply_and_close).pack(pady=10)
-    
-    def apply_date_selection(self, window):
-        """Применяет выбранные даты и закрывает окно"""
-        try:
-            self.hist_start_date = self.hist_start_entry.get_date()
-            self.hist_end_date = self.hist_end_entry.get_date()
-            self.pred_end_date = self.pred_end_entry.get_date()
-            
-            if self.hist_start_date >= self.hist_end_date:
-                messagebox.showerror("Ошибка", "Конечная дата исторических данных должна быть позже начальной")
-                return
-                
-            if self.hist_end_date >= self.pred_end_date:
-                messagebox.showerror("Ошибка", "Дата прогноза должна быть позже конечной даты исторических данных")
-                return
-                
-            window.destroy()
-            
-            # Заполняем начальные условия из данных
-            last_row = self.file_data.iloc[-1]
-            self.fill_initial_conditions_from_data(last_row)
-            
-            # Сообщаем пользователю, что можно добавлять модели
-            messagebox.showinfo("Информация", "Теперь вы можете добавить модели для анализа данных")
-            
-        except Exception as e:
-            messagebox.showerror("Ошибка", f"Ошибка при выборе дат: {str(e)}")
-
-    def model_selected(self, var):
-        """Обработчик выбора модели"""
-        model_name = var.get()
-        if not model_name:
-            return
-        
-        for v in self.model_vars:
-            if v != var and v.get() == model_name:
-                messagebox.showwarning("Предупреждение", "Эта модель уже выбрана")
-                var.set("")
-                return
-        
-        if model_name not in self.selected_models:
-            self.selected_models.append(model_name)
-            self.update_params_notebook()
-        
-        self.update_plots_visibility()
-        
-        # После выбора модели автоматически запускаем моделирование
-        if hasattr(self, 'file_data') and self.file_data is not None:
-            self.run_models_with_historical_data()
-
-    
-
-    def fill_initial_conditions_from_data(self, last_row):
-        """Заполняет начальные условия на основе данных из файла"""
-        if not hasattr(self, 'model_params'):
-            return
-            
-        # Попробуем найти столбцы с нужными данными
-        confirmed_col = next((col for col in last_row.index if 'confirmed' in col.lower()), None)
-        recovered_col = next((col for col in last_row.index if 'recovered' in col.lower()), None)
-        deaths_col = next((col for col in last_row.index if 'death' in col.lower()), None)
-        population_col = next((col for col in last_row.index if 'population' in col.lower()), None)
-        
-        # Если нашли население - используем, иначе считаем популяцию = 1
-        population = 1.0
-        if population_col:
-            try:
-                population = float(last_row[population_col])
-            except:
-                pass
-                
-        # Заполняем начальные условия для всех моделей
-        for model_name in self.model_params:
-            if model_name == "SIR":
-                if confirmed_col and recovered_col:
-                    confirmed = float(last_row[confirmed_col])
-                    recovered = float(last_row[recovered_col])
-                    
-                    # Нормализуем до 1.0
-                    infected = (confirmed - recovered) / population
-                    recovered = recovered / population
-                    susceptible = 1 - infected - recovered
-                    
-                    # Заполняем поля
-                    if "S0" in self.model_params[model_name]["initial_widgets"]:
-                        self.model_params[model_name]["initial_widgets"]["S0"].delete(0, tk.END)
-                        self.model_params[model_name]["initial_widgets"]["S0"].insert(0, str(susceptible))
-                    
-                    if "I0" in self.model_params[model_name]["initial_widgets"]:
-                        self.model_params[model_name]["initial_widgets"]["I0"].delete(0, tk.END)
-                        self.model_params[model_name]["initial_widgets"]["I0"].insert(0, str(infected))
-                    
-                    if "R0" in self.model_params[model_name]["initial_widgets"]:
-                        self.model_params[model_name]["initial_widgets"]["R0"].delete(0, tk.END)
-                        self.model_params[model_name]["initial_widgets"]["R0"].insert(0, str(recovered))
-
-class EpidemicModelsApp(EpidemicModelsTechLog, EpidemicModels):
+class EpidemicApp:
     def __init__(self, root):
-        EpidemicModelsTechLog.__init__(self)  # Initialize TechLog parent
-        EpidemicModels.__init__(self)         # Initialize Models parent
         self.root = root
-        self.root.title("Моделирование эпидемий")
-        self.root.geometry("1400x800")
+        self.root.title("Эпидемиологическое моделирование")
+        self.root.geometry("1200x800")
+        self.root.minsize(1000, 700)
         
-        self.models_obj = EpidemicModels()
-        self.available_models = {
-            "SIR": {"name": "SIR-модель", "func": self.sir_model, "params": self.get_model_parameters("sir_model")},
-            "SI": {"name": "SI-модель", "func": self.si_model, "params": self.get_model_parameters("si_model")},
-            "SIRS": {"name": "SIRS-модель", "func": self.sirs_model, "params": self.get_model_parameters("sirs_model")},
-            "SEIR": {"name": "SEIR-модель", "func": self.seir_model, "params": self.get_model_parameters("seir_model")},
-            "MSEIR": {"name": "MSEIR-модель", "func": self.mseir_model, "params": self.get_model_parameters("mseir_model")},
-            "SIQR": {"name": "SIQR-модель", "func": self.siqr_model, "params": self.get_model_parameters("siqr")},
-            "M-модель": {"name": "M-модель", "func": self.multi_stage_model, "params": self.get_model_parameters("m_model")}
-        }
+        # Настройка стиля
+        self.style = ttk.Style()
+        self.style.configure('TFrame', background='#f0f0f0')
+        self.style.configure('TLabel', background='#f0f0f0', font=('Arial', 10))
+        self.style.configure('TButton', font=('Arial', 10))
+        self.style.configure('TCheckbutton', background='#f0f0f0', font=('Arial', 10))
+        self.style.configure('TRadiobutton', background='#f0f0f0', font=('Arial', 10))
         
-        self.selected_models = []
-        self.model_widgets = []
-        self.model_vars = []
-        
-        self.create_left_panel()
-        self.create_right_panel()
-        
-        # Сразу создаем 4 поля для выбора моделей
-        for _ in range(4):
-            self.add_model_field(show_remove_button=False)
+        self.model = EpidemicModels()
+        self.result_data = {}
 
-    def run_models(self):
-        """Запускает моделирование с учетом исторических данных и прогноза"""
-        # Проверяем, что выбрана хотя бы одна модель
-        if len(self.selected_models) == 0:
-            messagebox.showwarning("Предупреждение", "Пожалуйста, выберите хотя бы одну модель")
-            return
-            
-        try:
-            if hasattr(self, 'file_data') and self.file_data is not None:
-                # Режим с историческими данными
-                self.run_models_with_historical_data()
-            else:
-                # Обычный режим моделирования
-                self.run_models_standard()
-                
-        except Exception as e:
-            messagebox.showerror("Ошибка", f"Ошибка при выполнении моделирования: {str(e)}")
-
-    def run_models_with_historical_data(self):
-        """Запускает моделирование с историческими данными и прогнозом"""
-        # Получаем выбранные даты
-        hist_start = self.hist_start_entry.get_date()
-        hist_end = self.hist_end_entry.get_date()
-        pred_end = self.pred_end_entry.get_date()
-        
-        # Фильтруем данные по выбранному диапазону
-        mask = (self.file_data[self.date_column] >= hist_start) & (self.file_data[self.date_column] <= hist_end)
-        hist_data = self.file_data.loc[mask]
-        
-        # Создаем временные точки для исторического периода
-        hist_days = (hist_end - hist_start).days + 1
-        t_hist = np.linspace(0, hist_days - 1, hist_days)
-        
-        # Создаем временные точки для прогноза
-        pred_days = (pred_end - hist_end).days
-        t_pred = np.linspace(hist_days, hist_days + pred_days - 1, pred_days)
-        
-        # Объединенные временные точки
-        t_total = np.concatenate([t_hist, t_pred])
-        
-        # Очищаем предыдущие результаты
-        self.model_results = {}
-        
-        for ax in self.axes:
-            ax.clear()
-        
-        for i, model_name in enumerate(self.selected_models):
-            if i >= 4:  # Не больше 4 моделей
-                break
-            
-            params = self.get_parameter_values(model_name)
-            initials = self.get_initial_values(model_name)
-            
-            # Сохраняем параметры и начальные условия
-            model_data = {
-                "parameters": params,
-                "initial_conditions": initials,
-                "time_points": t_total,
-                "solution": None,
-                "graph": None
-            }
-            
-            # Запускаем модель для прогноза
-            if model_name == "SI":
-                solution_pred = self.run_si_model(t_pred, params, initials, i, return_solution=True, method=self.method_var.get())
-            elif model_name == "SIR":
-                solution_pred = self.run_sir_model(t_pred, params, initials, i, return_solution=True, method=self.method_var.get())
-            elif model_name == "SIRS":
-                solution_pred = self.run_sir_model(t_pred, params, initials, i, return_solution=True, method=self.method_var.get())
-            elif model_name == "SIQR":
-                solution_pred = self.run_sir_model(t_pred, params, initials, i, return_solution=True, method=self.method_var.get())   
-            elif model_name == "SIER":
-                solution_pred = self.run_sir_model(t_pred, params, initials, i, return_solution=True, method=self.method_var.get())        
-            elif model_name == "MSEIR":
-                solution_pred = self.run_sir_model(t_pred, params, initials, i, return_solution=True, method=self.method_var.get())        
-            elif model_name == "M-model":
-                solution_pred = self.run_sir_model(t_pred, params, initials, i, return_solution=True, method=self.method_var.get())
+        self.create_widgets()
+        self.set_default_values()
 
 
-            # Объединяем исторические данные и прогноз
-            full_solution = {}
-            for key in solution_pred.keys():
-                # Создаем массив для всех точек
-                full_solution[key] = np.zeros(len(t_total))
-                
-                # Заполняем историческую часть (здесь нужно адаптировать под ваши данные)
-                # Например, если у вас есть столбец 'infected' в данных:
-                if key == "I" and 'infected' in hist_data.columns:
-                    full_solution[key][:len(t_hist)] = hist_data['infected'].values / hist_data['infected'].max()
-                
-                # Заполняем прогнозную часть
-                full_solution[key][len(t_hist):] = solution_pred[key]
-            
-            # Сохраняем полное решение
-            model_data["solution"] = full_solution
-            
-            # Обновляем график
-            ax = self.axes[i]
-            ax.clear()
-            
-            # Рисуем исторические данные
-            if 'S' in full_solution:
-                ax.plot(t_hist, full_solution['S'][:len(t_hist)], 'b', label='Восприимчивые (данные)')
-                ax.plot(t_pred, full_solution['S'][len(t_hist):], 'b--', label='Восприимчивые (прогноз)')
-            
-            if 'I' in full_solution:
-                ax.plot(t_hist, full_solution['I'][:len(t_hist)], 'r', label='Инфицированные (данные)')
-                ax.plot(t_pred, full_solution['I'][len(t_hist):], 'r--', label='Инфицированные (прогноз)')
+    def create_widgets(self):
+        # Главный контейнер с разделением на левую и правую части
+        main_paned = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
+        main_paned.pack(fill=tk.BOTH, expand=True)
 
-            if 'R' in full_solution:
-                ax.plot(t_hist, full_solution['R'][:len(t_hist)], 'r', label='Выздоровевшие (данные)')
-                ax.plot(t_pred, full_solution['R'][len(t_hist):], 'r--', label='Выздоровевшие (прогноз)')
+        # Левая панель (управление)
+        control_frame = ttk.Frame(main_paned, width=350, relief=tk.RIDGE, padding=10)
+        main_paned.add(control_frame, weight=0)
 
-            if 'E' in full_solution:
-                ax.plot(t_hist, full_solution['E'][:len(t_hist)], 'r', label='Латентные (данные)')
-                ax.plot(t_pred, full_solution['E'][len(t_hist):], 'r--', label='Латентные (прогноз)')
+        # Правая панель (графики)
+        graph_frame = ttk.Frame(main_paned)
+        main_paned.add(graph_frame, weight=1)
 
-            if 'Q' in full_solution:
-                ax.plot(t_hist, full_solution['Q'][:len(t_hist)], 'r', label='Изолированные (данные)')
-                ax.plot(t_pred, full_solution['Q'][len(t_hist):], 'r--', label='Изолированные (прогноз)')
+        # Создаем Notebook для вкладок в левой панели
+        control_notebook = ttk.Notebook(control_frame)
+        control_notebook.pack(fill=tk.BOTH, expand=True)
 
-            if 'M' in full_solution:
-                ax.plot(t_hist, full_solution['M'][:len(t_hist)], 'r', label='Иммунные (данные)')
-                ax.plot(t_pred, full_solution['M'][len(t_hist):], 'r--', label='Иммунные (прогноз)')
-                        
-            ax.axvline(x=t_hist[-1], color='gray', linestyle='--', label='Начало прогноза')
-            ax.set_ylim(0, 1)
-            ax.set_xlabel('Дни')
-            ax.set_ylabel('Доля населения')
-            ax.grid(True)
-            ax.legend()
-            self.canvases[i].draw()
-            
-            # Сохраняем график
-            buf = BytesIO()
-            self.figs[i].savefig(buf, format='png')
-            buf.seek(0)
-            model_data["graph"] = buf
-            
-            # Добавляем в результаты
-            self.model_results[model_name] = model_data
+        # Вкладка 1: Выбор моделей
+        models_tab = ttk.Frame(control_notebook)
+        control_notebook.add(models_tab, text="Модели")
+        self.create_models_tab(models_tab)
+
+        # Вкладка 2: Параметры
+        params_tab = ttk.Frame(control_notebook)
+        control_notebook.add(params_tab, text="Параметры")
+        self.create_params_tab(params_tab)
+
+        # Вкладка 3: Данные
+        data_tab = ttk.Frame(control_notebook)
+        control_notebook.add(data_tab, text="Данные")
+        self.create_data_tab(data_tab)
+
+        # Создаем графики в правой панели
+        self.create_graphs(graph_frame)
+    
+    def create_models_tab(self, parent):
+        # Группа выбора моделей
+        models_group = ttk.LabelFrame(parent, text="Выберите модели (макс. 4)", padding=10)
+        models_group.pack(fill=tk.BOTH, pady=5)
+
+        self.model_vars = {}
+        models = [
+            ('SI', 'Модель SI (восприимчивые-инфицированные)'),
+            ('SIR', 'Модель SIR (восприимчивые-инфицированные-выздоровевшие)'),
+            ('SIRS', 'Модель SIRS (с временным иммунитетом)'),
+            ('SEIR', 'Модель SEIR (с латентным периодом)'),
+            ('SIQR', 'Модель SIQR (с изоляцией)'),
+            ('MSEIR', 'Модель MSEIR (с материнским иммунитетом)')
+        ]
         
-    def get_model_parameters(self, model_name):
-        """Возвращает параметры для конкретной модели"""
-        if model_name == "si_model":
-            return {
-                "beta": {"name": "Коэффициент заражения (beta)", "default": 0.3, "min": 0, "max": 1, "step": 0.01},
-                "initial": {
-                    "S0": {"name": "Восприимчивые (S0)", "default": 0.99, "min": 0, "max": 1, "step": 0.01},
-                    "I0": {"name": "Инфицированные (I0)", "default": 0.01, "min": 0, "max": 1, "step": 0.01}
-                }
-            }
-        elif model_name == "sir_model":
-            return {
-                "beta": {"name": "Коэффициент заражения (beta)", "default": 0.3, "min": 0, "max": 1, "step": 0.01},
-                "gamma": {"name": "Коэффициент выздоровления (gamma)", "default": 0.1, "min": 0, "max": 1, "step": 0.01},
-                "initial": {
-                    "S0": {"name": "Восприимчивые (S0)", "default": 0.99, "min": 0, "max": 1, "step": 0.01},
-                    "I0": {"name": "Инфицированные (I0)", "default": 0.01, "min": 0, "max": 1, "step": 0.01},
-                    "R0": {"name": "Выздоровевшие (R0)", "default": 0.0, "min": 0, "max": 1, "step": 0.01}
-                }
-            }
-        elif model_name == "sirs_model":
-            return {
-                "beta": {"name": "Коэффициент заражения (beta)", "default": 0.3, "min": 0, "max": 1, "step": 0.01},
-                "gamma": {"name": "Коэффициент выздоровления (gamma)", "default": 0.1, "min": 0, "max": 1, "step": 0.01},
-                "delta": {"name": "Потеря иммунитета (delta)", "default": 0.05, "min": 0, "max": 1, "step": 0.01},
-                "initial": {
-                    "S0": {"name": "Восприимчивые (S0)", "default": 0.99, "min": 0, "max": 1, "step": 0.01},
-                    "I0": {"name": "Инфицированные (I0)", "default": 0.01, "min": 0, "max": 1, "step": 0.01},
-                    "R0": {"name": "Выздоровевшие (R0)", "default": 0.0, "min": 0, "max": 1, "step": 0.01}
-                }
-            }
-        elif model_name == "seir_model":
-            return {
-                "beta": {"name": "Коэффициент заражения (beta)", "default": 0.3, "min": 0, "max": 1, "step": 0.01},
-                "sigma": {"name": "Инкубационный период (sigma)", "default": 1/5.1, "min": 0, "max": 1, "step": 0.01},
-                "gamma": {"name": "Коэффициент выздоровления (gamma)", "default": 0.1, "min": 0, "max": 1, "step": 0.01},
-                "initial": {
-                    "S0": {"name": "Восприимчивые (S0)", "default": 0.99, "min": 0, "max": 1, "step": 0.01},
-                    "E0": {"name": "Латентные (E0)", "default": 0.0, "min": 0, "max": 1, "step": 0.01},
-                    "I0": {"name": "Инфицированные (I0)", "default": 0.01, "min": 0, "max": 1, "step": 0.01},
-                    "R0": {"name": "Выздоровевшие (R0)", "default": 0.0, "min": 0, "max": 1, "step": 0.01}
-                }
-            }
-        elif model_name == "mseir_model":
-            return {
-                "mu": {"name": "Смертность/рождаемость (mu)", "default": 0.01, "min": 0, "max": 0.1, "step": 0.001},
-                "delta": {"name": "Потеря антител (delta)", "default": 0.1, "min": 0, "max": 1, "step": 0.01},
-                "beta": {"name": "Коэффициент заражения (beta)", "default": 0.5, "min": 0, "max": 1, "step": 0.01},
-                "sigma": {"name": "Инкубационный период (sigma)", "default": 1/5, "min": 0, "max": 1, "step": 0.01},
-                "gamma": {"name": "Коэффициент выздоровления (gamma)", "default": 1/7, "min": 0, "max": 1, "step": 0.01},
-                "initial": {
-                    "M0": {"name": "Материнский иммунитет (M0)", "default": 0.3, "min": 0, "max": 1, "step": 0.01},
-                    "S0": {"name": "Восприимчивые (S0)", "default": 0.8, "min": 0, "max": 1, "step": 0.01},
-                    "E0": {"name": "Латентные (E0)", "default": 0.01, "min": 0, "max": 1, "step": 0.01},
-                    "I0": {"name": "Инфицированные (I0)", "default": 0.05, "min": 0, "max": 1, "step": 0.01},
-                    "R0": {"name": "Выздоровевшие (R0)", "default": 0.04, "min": 0, "max": 1, "step": 0.01}
-                }
-            }
-        elif model_name == "siqr":
-            return {
-                "beta": {"name": "Коэффициент заражения (beta)", "default": 0.3, "min": 0, "max": 1, "step": 0.01},
-                "gamma": {"name": "Выздоровление инфицированных (gamma)", "default": 0.1, "min": 0, "max": 1, "step": 0.01},
-                "delta": {"name": "Изоляция инфицированных (delta)", "default": 0.05, "min": 0, "max": 1, "step": 0.01},
-                "mu": {"name": "Выздоровление изолированных (mu)", "default": 0.05, "min": 0, "max": 1, "step": 0.01},
-                "initial": {
-                    "S0": {"name": "Восприимчивые (S0)", "default": 0.99, "min": 0, "max": 1, "step": 0.01},
-                    "I0": {"name": "Инфицированные (I0)", "default": 0.01, "min": 0, "max": 1, "step": 0.01},
-                    "Q0": {"name": "Изолированные (Q0)", "default": 0.0, "min": 0, "max": 1, "step": 0.01},
-                    "R0": {"name": "Выздоровевшие (R0)", "default": 0.0, "min": 0, "max": 1, "step": 0.01}
-                }
-            }
-        elif model_name == "m_model":
-            return {
-                "beta": {"name": "Коэффициент заражения (beta)", "default": 0.5, "min": 0, "max": 1, "step": 0.01},
-                "k": {"name": "Скорости переходов (k)", "default": [0.3, 0.2, 0.1], "min": 0, "max": 1, "step": 0.01},
-                "gamma": {"name": "Потеря иммунитета (gamma)", "default": 0.05, "min": 0, "max": 1, "step": 0.01},
-                "initial": {
-                    "S0": {"name": "Восприимчивые (S0)", "default": 0.9, "min": 0, "max": 1, "step": 0.01},
-                    "I0": {"name": "Инфицированные (I0)", "default": [0.1, 0.0, 0.0], "min": 0, "max": 1, "step": 0.01},
-                    "R0": {"name": "Выздоровевшие (R0)", "default": 0.0, "min": 0, "max": 1, "step": 0.01}
-                }
-            }
-        return {}
+        for model_code, model_desc in models:
+            var = tk.BooleanVar()
+            cb = ttk.Checkbutton(models_group, text=model_desc, variable=var, 
+                               command=self.update_model_selection)
+            cb.pack(anchor='w', padx=5, pady=2)
+            self.model_vars[model_code] = var
 
-    def create_left_panel(self):
-        """Создает левую панель с выбором моделей и параметрами"""
-        left_frame = ttk.Frame(self.root, padding=10, width=400)
-        left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=False, padx=5, pady=5)
-        left_frame.pack_propagate(False)
-            
-        model_frame = ttk.LabelFrame(left_frame, text="Выбор моделей", padding=10)
-        model_frame.pack(fill=tk.X, pady=5)
+        # Группа метода решения
+        method_group = ttk.LabelFrame(parent, text="Метод решения", padding=10)
+        method_group.pack(fill=tk.BOTH, pady=5)
         
-        self.models_container = ttk.Frame(model_frame)
-        self.models_container.pack(fill=tk.X)
-        
-        date_frame = ttk.LabelFrame(left_frame, text="Диапазон дат", padding=10)
-        date_frame.pack(fill=tk.X, pady=5)
-        
-        ttk.Label(date_frame, text="Начальная дата:").grid(row=0, column=0, sticky="w")
-        self.start_date_entry = DateEntry(
-            date_frame,
-            width=12,
-            background='darkblue',
-            foreground='white',
-            borderwidth=2,
-            date_pattern='dd.mm.yyyy'
-        )
-        self.start_date_entry.grid(row=0, column=1, sticky="w", padx=5, pady=2)
-        self.start_date_entry.set_date(datetime.now() - timedelta(days=30))
-        
-        ttk.Label(date_frame, text="Конечная дата:").grid(row=1, column=0, sticky="w")
-        self.end_date_entry = DateEntry(
-            date_frame,
-            width=12,
-            background='darkblue',
-            foreground='white',
-            borderwidth=2,
-            date_pattern='dd.mm.yyyy'
-        )
-        self.end_date_entry.grid(row=1, column=1, sticky="w", padx=5, pady=2)
-        self.end_date_entry.set_date(datetime.now())
-
-        # Выбор численного метода
-        method_frame = ttk.LabelFrame(left_frame, text="Численный метод", padding=10)
-        method_frame.pack(fill=tk.X, pady=5)
-
         self.method_var = tk.StringVar(value="runge_kutta")
-        method_combobox = ttk.Combobox(method_frame, textvariable=self.method_var,
-                                        values=["runge_kutta", "euler"], state="readonly")
-        method_combobox.pack(fill=tk.X, padx=5)
+        ttk.Radiobutton(method_group, text="Рунге-Кутта 4-го порядка", 
+                       variable=self.method_var, value="runge_kutta").pack(anchor='w', padx=5, pady=2)
+        ttk.Radiobutton(method_group, text="Метод Эйлера", 
+                       variable=self.method_var, value="euler").pack(anchor='w', padx=5, pady=2)
 
+        # Кнопка запуска
+        ttk.Button(parent, text="Запустить моделирование", 
+                  command=self.run_simulation).pack(fill=tk.X, pady=10)
         
-        ttk.Button(left_frame, text="Запустить моделирование", 
-                  command=self.run_models).pack(pady=10)
-        
-        ttk.Button(left_frame, text="Загрузить данные из файла", 
-           command=self.load_csv_country_data).pack(pady=5)
+    def create_params_tab(self, parent):
+        # Фрейм с прокруткой
+        canvas = tk.Canvas(parent)
+        scrollbar = ttk.Scrollbar(parent, orient="vertical", command=canvas.yview)
+        scrollable_frame = ttk.Frame(canvas)
 
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(
+                scrollregion=canvas.bbox("all")
+            )
+        )
+
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        # Параметры модели
+        params_group = ttk.LabelFrame(scrollable_frame, text="Параметры модели", padding=10)
+        params_group.pack(fill=tk.X, pady=5)
         
-        self.excel_data = None
-        self.excel_data_columns = []
+        self.param_entries = {}
+        params = [
+            ("beta", "β (скорость заражения)", 0.0, 1.0),
+            ("gamma", "γ (скорость выздоровления)", 0.0, 1.0),
+            ("delta", "δ (потеря иммунитета)", 0.0, 1.0),
+            ("sigma", "σ (переход в инфекционные)", 0.0, 1.0),
+            ("mu", "μ (выход из изоляции)", 0.0, 1.0)
+        ]
         
-        ttk.Button(left_frame, text="Экспорт в Excel", 
-                 command=self.export_results).pack(pady=5)
+        for param_code, param_desc, min_val, max_val in params:
+            row = ttk.Frame(params_group)
+            row.pack(fill=tk.X, pady=2)
+            
+            ttk.Label(row, text=param_desc, width=25).pack(side=tk.LEFT)
+            entry = ttk.Entry(row, width=8)
+            entry.pack(side=tk.RIGHT)
+            self.param_entries[param_code] = entry
+
+        # Начальные значения
+        initials_group = ttk.LabelFrame(scrollable_frame, text="Начальные значения (доля)", padding=10)
+        initials_group.pack(fill=tk.X, pady=5)
         
-        self.params_notebook = ttk.Notebook(left_frame)
-        self.params_notebook.pack(fill=tk.BOTH, expand=True, pady=5)
+        self.init_entries = {}
+        initials = [
+            ("S0", "S₀ (восприимчивые)", 0.0, 1.0),
+            ("I0", "I₀ (инфицированные)", 0.0, 1.0),
+            ("R0", "R₀ (выздоровевшие)", 0.0, 1.0),
+            ("E0", "E₀ (латентные)", 0.0, 1.0),
+            ("Q0", "Q₀ (изолированные)", 0.0, 1.0),
+            ("M0", "M₀ (материнский иммунитет)", 0.0, 1.0)
+        ]
         
-    
-    def create_right_panel(self):
-        """Создает правую панель с графиками"""
-        right_frame = ttk.Frame(self.root)
-        right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=5, pady=5)
+        for init_code, init_desc, min_val, max_val in initials:
+            row = ttk.Frame(initials_group)
+            row.pack(fill=tk.X, pady=2)
+            
+            ttk.Label(row, text=init_desc, width=25).pack(side=tk.LEFT)
+            entry = ttk.Entry(row, width=8)
+            entry.pack(side=tk.RIGHT)
+            self.init_entries[init_code] = entry
+
+        # Временные границы
+        time_group = ttk.LabelFrame(scrollable_frame, text="Временной диапазон", padding=10)
+        time_group.pack(fill=tk.X, pady=5)
         
-        self.plot_frames = []
-        self.figs = []
-        self.axes = []
-        self.canvases = []
+        ttk.Label(time_group, text="Начальная дата:").pack(anchor='w', pady=(0, 5))
+        self.start_entry = DateEntry(time_group, date_pattern='dd.mm.yyyy')
+        self.start_entry.pack(fill=tk.X, pady=(0, 10))
+        
+        ttk.Label(time_group, text="Конечная дата:").pack(anchor='w', pady=(0, 5))
+        self.end_entry = DateEntry(time_group, date_pattern='dd.mm.yyyy')
+        self.end_entry.pack(fill=tk.X)
+
+    def create_data_tab(self, parent):
+        # Группа загрузки данных
+        load_group = ttk.LabelFrame(parent, text="Загрузка данных", padding=10)
+        load_group.pack(fill=tk.BOTH, pady=5, expand=True)
+        
+        ttk.Button(load_group, text="Загрузить данные из CSV", 
+                  command=self.load_csv_data).pack(fill=tk.X, pady=5)
+
+        # Группа экспорта результатов
+        export_group = ttk.LabelFrame(parent, text="Экспорт результатов", padding=10)
+        export_group.pack(fill=tk.BOTH, pady=5)
+        
+        ttk.Button(export_group, text="Экспорт в Excel и ZIP", 
+                  command=self.export_results).pack(fill=tk.X, pady=5)
+        
+    def create_graphs(self, parent):
+        # Создаем 4 графика в сетке 2x2
+        self.model.axes = []
+        self.model.canvases = []
+        self.model.figs = []
         
         for i in range(4):
-            frame = ttk.LabelFrame(right_frame, text=f'График {i+1}', padding=5)
-            frame.grid(row=i//2, column=i%2, sticky="nsew", padx=5, pady=5)
-            right_frame.rowconfigure(i//2, weight=1)
-            right_frame.columnconfigure(i%2, weight=1)
+            fig = plt.Figure(figsize=(6, 4), dpi=100)
+            ax = fig.add_subplot(111)
             
-            fig, ax = plt.subplots(figsize=(6, 4))
-            ax.set_xlabel('Дни')
-            ax.set_ylabel('Доля населения')
-            ax.grid(True)
+            # Настройка внешнего вида графика
+            ax.grid(True, linestyle='--', alpha=0.7)
+            ax.set_facecolor('#f8f8f8')
             
-            canvas = FigureCanvasTkAgg(fig, master=frame)
-            canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+            # Создаем холст для графика
+            canvas = FigureCanvasTkAgg(fig, master=parent)
+            canvas_widget = canvas.get_tk_widget()
+            canvas_widget.grid(row=i//2, column=i%2, padx=5, pady=5, sticky='nsew')
+            canvas_widget.config(borderwidth=2, relief=tk.GROOVE)
             
-            self.plot_frames.append(frame)
-            self.figs.append(fig)
-            self.axes.append(ax)
-            self.canvases.append(canvas)
+            # Настройка растягивания
+            parent.grid_rowconfigure(i//2, weight=1)
+            parent.grid_columnconfigure(i%2, weight=1)
             
-            frame.grid_remove()
+            self.model.figs.append(fig)
+            self.model.axes.append(ax)
+            self.model.canvases.append(canvas)
+
+    def create_validate_func(self, min_val, max_val):
+        def validate(value):
+            if value == "":
+                return True
+            try:
+                num = float(value)
+                return min_val <= num <= max_val
+            except ValueError:
+                return False
+        return validate
     
-    def add_model_field(self, initial_model=None, show_remove_button=True):
-        """Добавляет новое поле выбора модели"""
-        if len(self.model_widgets) >= 4:
-            messagebox.showwarning("Предупреждение", "Можно добавить не более 4 моделей")
-            self.add_button.config(state=tk.DISABLED)
-            return
+    def set_default_values(self):
+        # Установка значений по умолчанию для параметров
+        self.param_entries["beta"].insert(0, "0.3")
+        self.param_entries["gamma"].insert(0, "0.1")
+        self.param_entries["delta"].insert(0, "0.01")
+        self.param_entries["sigma"].insert(0, "0.2")
+        self.param_entries["mu"].insert(0, "0.05")
         
-        frame = ttk.Frame(self.models_container)
-        frame.pack(fill=tk.X, pady=2)
+        # Установка значений по умолчанию для начальных условий
+        self.init_entries["S0"].insert(0, "0.99")
+        self.init_entries["I0"].insert(0, "0.01")
+        self.init_entries["R0"].insert(0, "0.0")
+        self.init_entries["E0"].insert(0, "0.0")
+        self.init_entries["Q0"].insert(0, "0.0")
+        self.init_entries["M0"].insert(0, "0.0")
         
-        var = tk.StringVar()
-        cb = ttk.Combobox(frame, textvariable=var, 
-                        values=[""] + list(self.available_models.keys()),
-                        state="readonly")
-        cb.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
-        
-        if initial_model:
-            var.set(initial_model)
-            self.model_selected(var)
-        
-        if show_remove_button:
-            btn = ttk.Button(frame, text="×", width=2, 
-                        command=lambda: self.remove_model_field(frame, var))
-            btn.pack(side=tk.RIGHT)
-        else:
-            ttk.Label(frame, width=2).pack(side=tk.RIGHT)
-        
-        cb.bind("<<ComboboxSelected>>", lambda e, v=var: self.model_selected(v))
-        
-        self.model_vars.append(var)
-        self.model_widgets.append({"frame": frame, "combobox": cb, "button": btn if show_remove_button else None})
+        # Установка дат по умолчанию
+        today = datetime.now()
+        self.start_entry.set_date(today)
+        self.end_entry.set_date(today + timedelta(days=100))
     
-    def remove_model_field(self, frame, var):
-        """Удаляет поле выбора модели"""
-        model_name = var.get()
-        if model_name in self.selected_models:
-            self.selected_models.remove(model_name)
-            self.update_params_notebook()
+    def update_model_selection(self):
+        # Подсчет выбранных моделей
+        selected = sum(var.get() for var in self.model_vars.values())
         
-        for i, widget in enumerate(self.model_widgets):
-            if widget["frame"] == frame:
-                self.model_widgets.pop(i)
-                self.model_vars.pop(i)
-                break
-        
-        frame.destroy()
-        
-        self.update_plots_visibility()
-    
-    def model_selected(self, var):
-        """Обработчик выбора модели"""
-        model_name = var.get()
-        if not model_name:
-            return
-        
-        for v in self.model_vars:
-            if v != var and v.get() == model_name:
-                messagebox.showwarning("Предупреждение", "Эта модель уже выбрана")
-                var.set("")
-                return
-        
-        if model_name not in self.selected_models:
-            self.selected_models.append(model_name)
-            self.update_params_notebook()
-        
-        self.update_plots_visibility()
-    
-    def update_plots_visibility(self):
-        """Обновляет видимость графиков в зависимости от количества выбранных моделей"""
-        num_models = len(self.selected_models)
-        
-        for i in range(4):
-            if i < num_models:
-                self.plot_frames[i].grid()
-            else:
-                self.plot_frames[i].grid_remove()
-                self.axes[i].clear()
-                self.canvases[i].draw()
-    
-    def update_params_notebook(self):
-        """Обновляет блокнот с параметрами для выбранных моделей"""
-        for tab in self.params_notebook.tabs():
-            self.params_notebook.forget(tab)
-        
-        for i, model_name in enumerate(self.selected_models):
-            tab = ttk.Frame(self.params_notebook)
-            self.params_notebook.add(tab, text=model_name)
-            
-            model_info = self.available_models[model_name]
-            params = model_info["params"]
-            
-            notebook = ttk.Notebook(tab)
-            notebook.pack(fill=tk.BOTH, expand=True)
-            
-            params_tab = ttk.Frame(notebook)
-            notebook.add(params_tab, text="Параметры")
-            
-            initial_tab = ttk.Frame(notebook)
-            notebook.add(initial_tab, text="Начальные условия")
-            
-            if not hasattr(self, 'model_params'):
-                self.model_params = {}
-            self.model_params[model_name] = {
-                "param_widgets": {},
-                "initial_widgets": {}
-            }
-            
-            row = 0
-            for param, info in params.items():
-                if param == "initial":
-                    continue
-                    
-                ttk.Label(params_tab, text=info["name"]).grid(row=row, column=0, sticky="w", padx=5, pady=2)
-                
-                if isinstance(info["default"], list):
-                    frame = ttk.Frame(params_tab)
-                    frame.grid(row=row, column=1, sticky="w")
-                    
-                    entries = []
-                    for j, val in enumerate(info["default"]):
-                        ttk.Label(frame, text=f"k{j+1}:").grid(row=0, column=j*2, padx=2)
-                        entry = ttk.Entry(frame, width=6)
-                        entry.insert(0, str(val))
-                        entry.grid(row=0, column=j*2+1, padx=2)
-                        entries.append(entry)
-                    
-                    self.model_params[model_name]["param_widgets"][param] = entries
-                else:
-                    spin = ttk.Spinbox(
-                        params_tab,
-                        from_=info["min"],
-                        to=info["max"],
-                        increment=info["step"],
-                        width=8
-                    )
-                    spin.set(info["default"])
-                    spin.grid(row=row, column=1, sticky="w", padx=5, pady=2)
-                    self.model_params[model_name]["param_widgets"][param] = spin
-                
-                row += 1
-            
-            row = 0
-            for param, info in params["initial"].items():
-                ttk.Label(initial_tab, text=info["name"]).grid(row=row, column=0, sticky="w", padx=5, pady=2)
-                
-                if isinstance(info["default"], list):
-                    # Для начальных условий, которые являются списками
-                    frame = ttk.Frame(initial_tab)
-                    frame.grid(row=row, column=1, sticky="w")
-                    
-                    entries = []
-                    for j, val in enumerate(info["default"]):
-                        ttk.Label(frame, text=f"I{j+1}:").grid(row=0, column=j*2, padx=2)
-                        entry = ttk.Entry(frame, width=6)
-                        entry.insert(0, str(val))
-                        entry.grid(row=0, column=j*2+1, padx=2)
-                        entries.append(entry)
-                    
-                    self.model_params[model_name]["initial_widgets"][param] = entries
-                else:
-                    spin = ttk.Spinbox(
-                        initial_tab,
-                        from_=info["min"],
-                        to=info["max"],
-                        increment=info["step"],
-                        width=8
-                    )
-                    spin.set(info["default"])
-                    spin.grid(row=row, column=1, sticky="w", padx=5, pady=2)
-                    self.model_params[model_name]["initial_widgets"][param] = spin
-                
-                row += 1
-    
-    def get_parameter_values(self, model_name):
-        """Возвращает значения параметров для указанной модели"""
-        params = {}
-        if model_name in self.model_params:
-            for param, widget in self.model_params[model_name]["param_widgets"].items():
-                if isinstance(widget, list):
-                    params[param] = [float(entry.get()) for entry in widget]
-                else:
-                    try:
-                        params[param] = float(widget.get())
-                    except ValueError:
-                        params[param] = 0.0
-        return params
-    
-    def get_initial_values(self, model_name):
-        """Возвращает начальные условия для указанной модели"""
-        initials = {}
-        if model_name in self.model_params:
-            for param, widget in self.model_params[model_name]["initial_widgets"].items():
-                if isinstance(widget, list):
-                    initials[param] = [float(entry.get()) for entry in widget]
-                else:
-                    try:
-                        initials[param] = float(widget.get())
-                    except ValueError:
-                        initials[param] = 0.0
-        return initials
-    
-    def run_models_standard(self):
-        """Запускает все выбранные модели и сохраняет результаты для экспорта"""
-        try:
-            start_date = self.start_date_entry.get_date()
-            end_date = self.end_date_entry.get_date()
-            method = self.method_var.get()
-            
-            if end_date <= start_date:
-                messagebox.showerror("Ошибка", "Конечная дата должна быть позже начальной")
-                return
-            
-            delta = end_date - start_date
-            t = np.linspace(0, delta.days, delta.days + 1)
-            
-            # Очищаем предыдущие результаты
-            self.model_results = {}
-            
-            for ax in self.axes:
-                ax.clear()
-            
-            for i, model_name in enumerate(self.selected_models):
-                if i >= 4:  # Не больше 4 моделей
+        # Если выбрано больше 4 моделей, снимаем последний выбор
+        if selected > 4:
+            for model_code, var in reversed(self.model_vars.items()):
+                if var.get():
+                    var.set(False)
+                    messagebox.showwarning("Предупреждение", "Можно выбрать не более 4 моделей одновременно")
                     break
+    
+    def run_simulation(self):
+        # Проверка, что выбрана хотя бы одна модель
+        selected_models = [name for name, var in self.model_vars.items() if var.get()]
+        if not selected_models:
+            messagebox.showwarning("Ошибка", "Выберите хотя бы одну модель")
+            return
+        
+        # Проверка корректности ввода параметров
+        try:
+            params = {k: float(e.get()) if e.get() else 0.0 for k, e in self.param_entries.items()}
+            initials = {k: float(e.get()) if e.get() else 0.0 for k, e in self.init_entries.items()}
+        except ValueError:
+            messagebox.showerror("Ошибка", "Некорректные значения параметров")
+            return
+        
+        # Проверка дат
+        if self.end_entry.get_date() <= self.start_entry.get_date():
+            messagebox.showerror("Ошибка", "Конечная дата должна быть позже начальной")
+            return
+        
+        self.result_data.clear()
+        days = (self.end_entry.get_date() - self.start_entry.get_date()).days
+        t = np.linspace(0, days, days + 1)
+        method = self.method_var.get()
+        
+        # Очистка графиков перед новым моделированием
+        for ax in self.model.axes:
+            ax.clear()
+        
+        # Запуск выбранных моделей
+        for i, model_code in enumerate(selected_models):
+            if i >= 4:  # Не более 4 моделей
+                break
                 
-                params = self.get_parameter_values(model_name)
-                initials = self.get_initial_values(model_name)
-                
-                # Сохраняем параметры и начальные условия
-                model_data = {
-                    "parameters": params,
-                    "initial_conditions": initials,
-                    "time_points": t,
-                    "solution": None,
-                    "graph": None
-                }
-                
-                if model_name == "SI":
-                    solution = self.run_si_model(t, params, initials, i, return_solution=True, method=method)
-                elif model_name == "SIR":
-                    solution = self.run_sir_model(t, params, initials, i, return_solution=True, method=method)
-                elif model_name == "SIRS":
-                    solution = self.run_sirs_model(t, params, initials, i, return_solution=True, method=method)
-                elif model_name == "SEIR":
-                    solution = self.run_seir_model(t, params, initials, i, return_solution=True, method=method)
-                elif model_name == "MSEIR":
-                    solution = self.run_mseir_model(t, params, initials, i, return_solution=True, method=method)
-                elif model_name == "SIQR":
-                    solution = self.run_siqr_model(t, params, initials, i, return_solution=True, method=method)
-                elif model_name == "M-модель":
-                    solution = self.run_m_model(t, params, initials, i, return_solution=True, method=method)
-                
-                # Сохраняем решение
-                model_data["solution"] = solution
-                
-                # Сохраняем график
-                buf = BytesIO()
-                self.figs[i].savefig(buf, format='png')
-                buf.seek(0)
-                model_data["graph"] = buf
-                
-                # Добавляем в результаты
-                self.model_results[model_name] = model_data
-                
-                self.axes[i].set_title(self.available_models[model_name]["name"])
-                self.axes[i].legend()
-                self.canvases[i].draw()
-                
+            if model_code == "SI":
+                sol = self.model.run_si_model(t, params, initials, i, return_solution=True, method=method)
+            elif model_code == "SIR":
+                sol = self.model.run_sir_model(t, params, initials, i, return_solution=True, method=method)
+            elif model_code == "SIRS":
+                sol = self.model.run_sirs_model(t, params, initials, i, return_solution=True, method=method)
+            elif model_code == "SEIR":
+                sol = self.model.run_seir_model(t, params, initials, i, return_solution=True, method=method)
+            elif model_code == "SIQR":
+                sol = self.model.run_siqr_model(t, params, initials, i, return_solution=True, method=method)
+            elif model_code == "MSEIR":
+                sol = self.model.run_mseir_model(t, params, initials, i, return_solution=True, method=method)
+            
+            if sol:
+                self.result_data[model_code] = pd.DataFrame(sol, index=t)
+        
+        # Обновление всех графиков
+        for canvas in self.model.canvases:
+            canvas.draw()
+    
+    def load_csv_data(self):
+        path = filedialog.askopenfilename(filetypes=[("CSV files", "*.csv")])
+        if not path:
+            return
+        
+        try:
+            df = pd.read_csv(path)
+            df["Date"] = pd.to_datetime(df["Date"])
+            df.sort_values("Date", inplace=True)
+            self.csv_data = df
+
+            # Получаем уникальные страны
+            countries = sorted(df["Country/Region"].dropna().unique())
+            
+            # Создаем окно выбора страны
+            self.country_selection = tk.Toplevel(self.root)
+            self.country_selection.title("Выбор страны и дат")
+            self.country_selection.geometry("400x300")
+
+            # Выбор страны
+            ttk.Label(self.country_selection, text="Выберите страну:").pack(pady=(10, 5))
+            self.country_cb = ttk.Combobox(self.country_selection, values=countries, state="readonly")
+            self.country_cb.pack(pady=5)
+
+            # Выбор диапазона дат для начальных данных
+            ttk.Label(self.country_selection, text="Выберите диапазон дат для начальных данных:").pack(pady=(10, 5))
+            
+            date_frame = ttk.Frame(self.country_selection)
+            date_frame.pack(pady=5)
+            
+            ttk.Label(date_frame, text="С:").pack(side=tk.LEFT)
+            self.data_start_entry = DateEntry(date_frame, date_pattern='dd.mm.yyyy')
+            self.data_start_entry.pack(side=tk.LEFT, padx=5)
+            
+            ttk.Label(date_frame, text="По:").pack(side=tk.LEFT)
+            self.data_end_entry = DateEntry(date_frame, date_pattern='dd.mm.yyyy')
+            self.data_end_entry.pack(side=tk.LEFT, padx=5)
+
+            # Установка минимальной и максимальной даты из данных
+            min_date = df["Date"].min().to_pydatetime()
+            max_date = df["Date"].max().to_pydatetime()
+            self.data_start_entry.set_date(min_date)
+            self.data_end_entry.set_date(max_date)
+
+            # Кнопка загрузки
+            ttk.Button(self.country_selection, text="Загрузить данные", 
+                      command=self.process_csv_data).pack(pady=10)
         except Exception as e:
-            messagebox.showerror("Ошибка", f"Ошибка при выполнении моделирования: {str(e)}")
+            messagebox.showerror("Ошибка", f"Не удалось загрузить файл: {str(e)}")
+    
+    def process_csv_data(self):
+        country = self.country_cb.get()
+        if not country:
+            messagebox.showwarning("Ошибка", "Выберите страну")
+            return
+        
+        try:
+            # Получаем выбранные даты
+            start_date = self.data_start_entry.get_date()
+            end_date = self.data_end_entry.get_date()
+            
+            if start_date > end_date:
+                messagebox.showerror("Ошибка", "Начальная дата не может быть позже конечной")
+                return
+
+            # Фильтруем данные по стране и дате
+            df_country = self.csv_data[
+                (self.csv_data["Country/Region"] == country) &
+                (self.csv_data["Date"] >= pd.to_datetime(start_date)) &
+                (self.csv_data["Date"] <= pd.to_datetime(end_date))
+            ].copy()
+            
+            if df_country.empty:
+                messagebox.showerror("Ошибка", "Нет данных для выбранного диапазона дат")
+                return
+
+            # Берем последние значения в выбранном диапазоне как начальные
+            latest = df_country.iloc[-1]
+            total = latest["Confirmed"] + latest["Recovered"] + latest["Deaths"]
+            if total == 0:
+                total = 1  # во избежание деления на 0
+            
+            S0 = 1 - (latest["Confirmed"] + latest["Recovered"] + latest["Deaths"]) / total
+            I0 = latest["Confirmed"] / total
+            R0 = latest["Recovered"] / total
+
+            # Обновление начальных значений в основном интерфейсе
+            for entry in self.init_entries.values():
+                entry.delete(0, tk.END)
+                
+            self.init_entries["S0"].insert(0, f"{S0:.4f}")
+            self.init_entries["I0"].insert(0, f"{I0:.4f}")
+            self.init_entries["R0"].insert(0, f"{R0:.4f}")
+            
+            # Устанавливаем даты моделирования (по умолчанию продолжаем после выбранного диапазона)
+            self.start_entry.set_date(end_date)
+            self.end_entry.set_date(end_date + timedelta(days=100))
+            
+            self.country_selection.destroy()
+            messagebox.showinfo("Успех", f"Данные для {country} за период {start_date.strftime('%d.%m.%Y')}-{end_date.strftime('%d.%m.%Y')} успешно загружены")
+        except Exception as e:
+            messagebox.showerror("Ошибка", f"Не удалось обработать данные: {str(e)}")
+    
+    def export_results(self):
+        if not self.result_data:
+            messagebox.showwarning("Нет данных", "Сначала выполните моделирование")
+            return
+
+        save_path = filedialog.asksaveasfilename(
+            defaultextension=".zip",
+            filetypes=[("ZIP files", "*.zip")],
+            initialfile="epidemic_results.zip"
+        )
+        
+        if not save_path:
+            return
+
+        try:
+            mem_zip = BytesIO()
+            with zipfile.ZipFile(mem_zip, mode='w', compression=zipfile.ZIP_DEFLATED) as zf:
+                for model_name, df in self.result_data.items():
+                    excel_buffer = BytesIO()
+                    with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
+                        # Лист 1: Начальные данные
+                        initials_df = pd.DataFrame({
+                            'Параметр': ['S₀ (восприимчивые)', 'I₀ (инфицированные)', 'R₀ (выздоровевшие)',
+                                         'E₀ (латентные)', 'Q₀ (изолированные)', 'M₀ (материнский иммунитет)'],
+                            'Значение': [self.init_entries["S0"].get(), self.init_entries["I0"].get(),
+                                        self.init_entries["R0"].get(), self.init_entries["E0"].get(),
+                                        self.init_entries["Q0"].get(), self.init_entries["M0"].get()]
+                        })
+                        initials_df.to_excel(writer, sheet_name='Начальные данные', index=False)
+                        
+                        # Лист 2: Параметры модели
+                        params_df = pd.DataFrame({
+                            'Параметр': ['β (скорость заражения)', 'γ (скорость выздоровления)',
+                                        'δ (потеря иммунитета)', 'σ (переход в инфекционные)',
+                                        'μ (выход из изоляции)'],
+                            'Значение': [self.param_entries["beta"].get(), self.param_entries["gamma"].get(),
+                                        self.param_entries["delta"].get(), self.param_entries["sigma"].get(),
+                                        self.param_entries["mu"].get()]
+                        })
+                        params_df.to_excel(writer, sheet_name='Параметры', index=False)
+                        
+                        # Лист 3: Решение
+                        # Создаем DataFrame с информацией о методе
+                        method_info = pd.DataFrame({
+                            'Информация': ['Метод решения:', 'Выбранная модель:'],
+                            'Значение': [self.method_var.get().replace("runge_kutta", "Рунге-Кутта 4-го порядка").replace("euler", "Метод Эйлера"), 
+                                        model_name]
+                        })
+                        
+                        # Записываем информацию о методе
+                        method_info.to_excel(writer, sheet_name='Решение', startrow=0, index=False, header=False)
+                        
+                        # Записываем основные данные с отступом в 2 строки
+                        df.to_excel(writer, sheet_name='Решение', startrow=3, index=True)
+                        
+                        # Получаем объект worksheet для дополнительного форматирования
+                        worksheet = writer.sheets['Решение']
+                        
+                        # Добавляем подпись к индексу
+                        worksheet.write(3, 0, 'Дни')
+                        
+                        # Лист 4: График
+                        graph_sheet = writer.book.add_worksheet('График')
+                        
+                        # Создаем график
+                        chart = writer.book.add_chart({'type': 'line'})
+                        
+                        max_row = len(df) + 4  # Учитываем смещение из-за заголовков
+                        categories = f"='Решение'!$A$5:$A${max_row}"
+                        
+                        for i, col in enumerate(df.columns, 1):
+                            chart.add_series({
+                                'name': f"='Решение'!${chr(66+i)}$4",
+                                'categories': categories,
+                                'values': f"='Решение'!${chr(66+i)}$5:${chr(66+i)}${max_row}",
+                            })
+                        
+                        chart.set_x_axis({'name': 'Дни'})
+                        chart.set_y_axis({'name': 'Доля населения'})
+                        chart.set_title({'name': f'Модель {model_name} ({method_info.iloc[0,1]})'})
+                        
+                        # Вставляем график на лист График
+                        graph_sheet.insert_chart('B2', chart, {'x_scale': 2, 'y_scale': 2})
+                    
+                    zf.writestr(f"{model_name}.xlsx", excel_buffer.getvalue())
+
+            with open(save_path, "wb") as f:
+                f.write(mem_zip.getvalue())
+            
+            messagebox.showinfo("Экспорт завершён", f"Файлы успешно сохранены в архив:\n{save_path}")
+        except Exception as e:
+            messagebox.showerror("Ошибка", f"Не удалось экспортировать данные: {str(e)}")
 
 if __name__ == "__main__":
     root = tk.Tk()
-    app = EpidemicModelsApp(root)
-    def on_closing():
-        for fig in app.figs:
-            plt.close(fig)
-        root.destroy()
-    root.protocol("WM_DELETE_WINDOW", on_closing)
+    app = EpidemicApp(root)
     root.mainloop()
