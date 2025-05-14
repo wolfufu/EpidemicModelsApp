@@ -307,18 +307,6 @@ class EpidemicModels(NumericalMethods):
             
             return result
 
-class ValidatedEntry(ttk.Entry):
-    def __init__(self, master=None, **kwargs):
-        self.validate_command = kwargs.pop('validate', None)
-        super().__init__(master, **kwargs)
-        vcmd = (self.register(self.validate), '%P')
-        self.configure(validate='key', validatecommand=vcmd)
-    
-    def validate(self, value):
-        if self.validate_command:
-            return self.validate_command(value)
-        return True
-
 class EpidemicApp:
     def __init__(self, root):
         self.root = root
@@ -342,6 +330,7 @@ class EpidemicApp:
 
 
     def create_widgets(self):
+        """создание основного интерфейса"""
         # Главный контейнер с разделением на левую и правую части
         main_paned = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
         main_paned.pack(fill=tk.BOTH, expand=True)
@@ -377,6 +366,7 @@ class EpidemicApp:
         self.create_graphs(graph_frame)
     
     def create_models_tab(self, parent):
+        """вкладка выбора моделей"""
         # Группа выбора моделей
         models_group = ttk.LabelFrame(parent, text="Выберите модели (макс. 4)", padding=10)
         models_group.pack(fill=tk.BOTH, pady=5)
@@ -413,6 +403,7 @@ class EpidemicApp:
                   command=self.run_simulation).pack(fill=tk.X, pady=10)
         
     def create_params_tab(self, parent):
+        """вкладка параметров и начальных условий"""
         # Фрейм с прокруткой
         canvas = tk.Canvas(parent)
         scrollbar = ttk.Scrollbar(parent, orient="vertical", command=canvas.yview)
@@ -489,6 +480,7 @@ class EpidemicApp:
         self.end_entry.pack(fill=tk.X)
 
     def create_data_tab(self, parent):
+        """вкладка для загрузки и экспорта данных"""
         # Группа загрузки данных
         load_group = ttk.LabelFrame(parent, text="Загрузка данных", padding=10)
         load_group.pack(fill=tk.BOTH, pady=5, expand=True)
@@ -504,6 +496,7 @@ class EpidemicApp:
                   command=self.export_results).pack(fill=tk.X, pady=5)
         
     def create_graphs(self, parent):
+        """настройка графиков для отображения результатов"""
         # Создаем 4 графика в сетке 2x2
         self.model.axes = []
         self.model.canvases = []
@@ -532,6 +525,7 @@ class EpidemicApp:
             self.model.canvases.append(canvas)
 
     def create_validate_func(self, min_val, max_val):
+        """создание функции валидации ввода"""
         def validate(value):
             if value == "":
                 return True
@@ -543,6 +537,7 @@ class EpidemicApp:
         return validate
     
     def set_default_values(self):
+        """установка значений по умолчанию"""
         # Установка значений по умолчанию для параметров
         self.param_entries["beta"].insert(0, "0.3")
         self.param_entries["gamma"].insert(0, "0.1")
@@ -564,6 +559,7 @@ class EpidemicApp:
         self.end_entry.set_date(today + timedelta(days=100))
     
     def update_model_selection(self):
+        """ограничение выбора моделей до 4"""
         # Подсчет выбранных моделей
         selected = sum(var.get() for var in self.model_vars.values())
         
@@ -576,6 +572,7 @@ class EpidemicApp:
                     break
     
     def run_simulation(self):
+        """запуск моделирования"""
         # Проверка, что выбрана хотя бы одна модель
         selected_models = [name for name, var in self.model_vars.items() if var.get()]
         if not selected_models:
@@ -630,6 +627,7 @@ class EpidemicApp:
             canvas.draw()
     
     def load_csv_data(self):
+        """загрузка данных из CSV"""
         path = filedialog.askopenfilename(filetypes=[("CSV files", "*.csv")])
         if not path:
             return
@@ -680,6 +678,7 @@ class EpidemicApp:
             messagebox.showerror("Ошибка", f"Не удалось загрузить файл: {str(e)}")
     
     def process_csv_data(self):
+        """обработка загруженных данных"""
         country = self.country_cb.get()
         if not country:
             messagebox.showwarning("Ошибка", "Выберите страну")
@@ -733,6 +732,7 @@ class EpidemicApp:
             messagebox.showerror("Ошибка", f"Не удалось обработать данные: {str(e)}")
     
     def export_results(self):
+        """экспорт результатов в ZIP-архив"""
         if not self.result_data:
             messagebox.showwarning("Нет данных", "Сначала выполните моделирование")
             return
