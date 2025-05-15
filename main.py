@@ -98,15 +98,6 @@ class EpidemicModels(NumericalMethods):
         dRdt = gamma * I - mu * R
         return np.array([dMdt, dSdt, dEdt, dIdt, dRdt])
     
-    def multi_stage_model(self, t, y, beta, k, gamma):
-        S, *I, R = y
-        dS_dt = -beta * S * I[0] + gamma * R
-        dI_dt = [beta * S * I[0] - k[0] * I[0]]
-        for j in range(1, len(I)):
-            dI_dt.append(k[j-1] * I[j-1] - k[j] * I[j])
-        dR_dt = k[-1] * I[-1] - gamma * R
-        return np.array([dS_dt] + dI_dt + [dR_dt])
-    
     def run_si_model(self, t, params, initials, plot_index, return_solution=False, method="runge_kutta"):
         """Запускает SI модель на указанном графике"""
         y0 = [initials["S0"], initials["I0"]]
@@ -269,43 +260,6 @@ class EpidemicModels(NumericalMethods):
 
         if return_solution:
             return {"S": S, "I": I, "Q": Q, "R": R}
-
-    def run_m_model(self, t, params, initials, plot_index, return_solution=False, method="runge_kutta"):
-        """Запускает M-модель на указанном графике"""
-        y0 = [initials["S0"]] + initials["I0"] + [initials["R0"]]
-
-        if method == "runge_kutta":
-            self.runge_kutta_4(self.multi_stage_model, y0, t, 
-                        (params["beta"], params["k"], params["gamma"]))
-        else:
-            self.euler_method(self.multi_stage_model, y0, t, 
-                        (params["beta"], params["k"], params["gamma"]))
-
-        solution = self.result
-        
-        ax = self.axes[plot_index]
-        ax.clear()
-        ax.plot(t, solution[0], 'b', label='Восприимчивые')
-        for j in range(len(initials["I0"])):
-            ax.plot(t, solution[j+1], linestyle='dashed', label=f'I{j+1} (Стадия {j+1})')
-        ax.plot(t, solution[-1], 'g', label='Выздоровевшие')
-        ax.set_ylim(0, 1)
-        ax.set_xlabel('Дни')
-        ax.set_ylabel('Доля населения')
-        ax.grid(True)
-        ax.legend()
-        self.canvases[plot_index].draw()
-        
-        if return_solution:
-            result = {
-                "S": solution[0],
-                "R": solution[-1]
-            }
-            # Добавляем все стадии инфицированных
-            for j in range(len(initials["I0"])):
-                result[f"I{j+1}"] = solution[j+1]
-            
-            return result
 
 class EpidemicApp:
     def __init__(self, root):
