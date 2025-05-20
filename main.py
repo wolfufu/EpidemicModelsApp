@@ -6,10 +6,8 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import numpy as np
 import pandas as pd
-import os
 import zipfile
 from io import BytesIO
-import re
 
 class NumericalMethods:
     def __init__(self):
@@ -264,7 +262,7 @@ class EpidemicModels(NumericalMethods):
 class EpidemicApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Эпидемиологическое моделирование")
+        self.root.title("EpidemicModels")
         self.root.geometry("1200x800")
         self.root.minsize(1000, 700)
         
