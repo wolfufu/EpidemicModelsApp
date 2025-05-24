@@ -116,6 +116,7 @@ class EpidemicModels(NumericalMethods):
         ax.set_ylabel('Доля населения')
         ax.grid(True)
         ax.legend()
+        ax.set_title('SI-модель')
         self.canvases[plot_index].draw()
         
         if return_solution:
@@ -142,6 +143,7 @@ class EpidemicModels(NumericalMethods):
         ax.set_ylabel('Доля населения')
         ax.grid(True)
         ax.legend()
+        ax.set_title('SIR-модель')
         self.canvases[plot_index].draw()
 
         if return_solution:
@@ -168,6 +170,7 @@ class EpidemicModels(NumericalMethods):
         ax.set_ylabel('Доля населения')
         ax.grid(True)
         ax.legend()
+        ax.set_title('SIRS-модель')
         self.canvases[plot_index].draw()
 
         if return_solution:
@@ -195,6 +198,7 @@ class EpidemicModels(NumericalMethods):
         ax.set_ylabel('Доля населения')
         ax.grid(True)
         ax.legend()
+        ax.set_title('SEIR-модель')
         self.canvases[plot_index].draw()
 
         if return_solution:
@@ -225,6 +229,7 @@ class EpidemicModels(NumericalMethods):
         ax.set_ylabel('Доля населения')
         ax.grid(True)
         ax.legend()
+        ax.set_title('MSEIR-модель')
         self.canvases[plot_index].draw()
 
         if return_solution:
@@ -254,6 +259,7 @@ class EpidemicModels(NumericalMethods):
         ax.set_ylabel('Доля населения')
         ax.grid(True)
         ax.legend()
+        ax.set_title('SIQR-модель')
         self.canvases[plot_index].draw()
 
         if return_solution:
@@ -316,6 +322,90 @@ class EpidemicApp:
 
         # Создаем графики в правой панели
         self.create_graphs(graph_frame)
+
+    def create_model_params_tab(self, model_code):
+        frame = ttk.Frame(self.params_notebook)
+
+        # Параметры модели
+        param_group = ttk.LabelFrame(frame, text="Параметры модели", padding=10)
+        param_group.pack(fill=tk.X, pady=5)
+
+        # Начальные значения
+        init_group = ttk.LabelFrame(frame, text="Начальные значения", padding=10)
+        init_group.pack(fill=tk.X, pady=5)
+
+        # Словари для хранения Entry
+        param_entries = {}
+        init_entries = {}
+
+        # Список параметров по моделям
+        param_definitions = {
+            "SI": [("beta", "β")],
+            "SIR": [("beta", "β"), ("gamma", "γ")],
+            "SIRS": [("beta", "β"), ("gamma", "γ"), ("delta", "δ")],
+            "SEIR": [("beta", "β"), ("sigma", "σ"), ("gamma", "γ")],
+            "SIQR": [("beta", "β"), ("gamma", "γ"), ("delta", "δ"), ("mu", "μ")],
+            "MSEIR": [("mu", "μ"), ("delta", "δ"), ("beta", "β"), ("sigma", "σ"), ("gamma", "γ")],
+        }
+
+        init_definitions = {
+            "SI": [("S0", "S₀"), ("I0", "I₀")],
+            "SIR": [("S0", "S₀"), ("I0", "I₀"), ("R0", "R₀")],
+            "SIRS": [("S0", "S₀"), ("I0", "I₀"), ("R0", "R₀")],
+            "SEIR": [("S0", "S₀"), ("E0", "E₀"), ("I0", "I₀"), ("R0", "R₀")],
+            "SIQR": [("S0", "S₀"), ("I0", "I₀"), ("Q0", "Q₀"), ("R0", "R₀")],
+            "MSEIR": [("M0", "M₀"), ("S0", "S₀"), ("E0", "E₀"), ("I0", "I₀"), ("R0", "R₀")],
+        }
+
+        for code, label in param_definitions.get(model_code, []):
+            row = ttk.Frame(param_group)
+            row.pack(fill=tk.X, pady=2)
+            ttk.Label(row, text=label, width=25).pack(side=tk.LEFT)
+            entry = ttk.Entry(row, width=8)
+            entry.pack(side=tk.RIGHT)
+            param_entries[code] = entry
+
+        for code, label in init_definitions.get(model_code, []):
+            row = ttk.Frame(init_group)
+            row.pack(fill=tk.X, pady=2)
+            ttk.Label(row, text=label, width=25).pack(side=tk.LEFT)
+            entry = ttk.Entry(row, width=8)
+            entry.pack(side=tk.RIGHT)
+            init_entries[code] = entry
+
+        # Сохраняем
+        self.model_param_tabs[model_code] = {
+            "frame": frame,
+            "param_entries": param_entries,
+            "init_entries": init_entries
+        }
+        self.params_notebook.add(frame, text=model_code)
+
+        if "beta" in param_entries:
+            param_entries["beta"].insert(0, "0.3")
+        if "gamma" in param_entries:
+            param_entries["gamma"].insert(0, "0.1")
+        if "delta" in param_entries:
+            param_entries["delta"].insert(0, "0.01")
+        if "sigma" in param_entries:
+            param_entries["sigma"].insert(0, "0.2")
+        if "mu" in param_entries:
+            param_entries["mu"].insert(0, "0.05")
+
+        if "S0" in init_entries:
+            init_entries["S0"].insert(0, "0.99")
+        if "I0" in init_entries:
+            init_entries["I0"].insert(0, "0.01")
+        if "R0" in init_entries:
+            init_entries["R0"].insert(0, "0.0")
+        if "E0" in init_entries:
+            init_entries["E0"].insert(0, "0.0")
+        if "Q0" in init_entries:
+            init_entries["Q0"].insert(0, "0.0")
+        if "M0" in init_entries:
+            init_entries["M0"].insert(0, "0.0")
+
+
     
     def create_models_tab(self, parent):
         """вкладка выбора моделей"""
@@ -354,9 +444,14 @@ class EpidemicApp:
         ttk.Button(parent, text="Запустить моделирование", 
                   command=self.run_simulation).pack(fill=tk.X, pady=10)
         
+        # Кнопка справки по моделям
+        ttk.Button(parent, text="Справка по моделям", 
+                   command=self.open_model_docs).pack(fill=tk.X, pady=5)
+
+
+        
     def create_params_tab(self, parent):
-        """вкладка параметров и начальных условий"""
-        # Фрейм с прокруткой
+        """вкладка параметров с динамическими вкладками под каждую модель"""
         canvas = tk.Canvas(parent)
         scrollbar = ttk.Scrollbar(parent, orient="vertical", command=canvas.yview)
         scrollable_frame = ttk.Frame(canvas)
@@ -374,59 +469,19 @@ class EpidemicApp:
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
 
-        # Параметры модели
-        params_group = ttk.LabelFrame(scrollable_frame, text="Параметры модели", padding=10)
-        params_group.pack(fill=tk.X, pady=5)
-        
-        self.param_entries = {}
-        params = [
-            ("beta", "β (скорость заражения)", 0.0, 1.0),
-            ("gamma", "γ (скорость выздоровления)", 0.0, 1.0),
-            ("delta", "δ (потеря иммунитета)", 0.0, 1.0),
-            ("sigma", "σ (переход в инфекционные)", 0.0, 1.0),
-            ("mu", "μ (выход из изоляции)", 0.0, 1.0)
-        ]
-        
-        for param_code, param_desc, min_val, max_val in params:
-            row = ttk.Frame(params_group)
-            row.pack(fill=tk.X, pady=2)
-            
-            ttk.Label(row, text=param_desc, width=25).pack(side=tk.LEFT)
-            entry = ttk.Entry(row, width=8)
-            entry.pack(side=tk.RIGHT)
-            self.param_entries[param_code] = entry
+        # Заменяем старую реализацию: создаём notebook
+        self.params_notebook = ttk.Notebook(scrollable_frame)
+        self.params_notebook.pack(fill=tk.BOTH, expand=True)
+        self.model_param_tabs = {}
 
-        # Начальные значения
-        initials_group = ttk.LabelFrame(scrollable_frame, text="Начальные значения (доля)", padding=10)
-        initials_group.pack(fill=tk.X, pady=5)
-        
-        self.init_entries = {}
-        initials = [
-            ("S0", "S₀ (восприимчивые)", 0.0, 1.0),
-            ("I0", "I₀ (инфицированные)", 0.0, 1.0),
-            ("R0", "R₀ (выздоровевшие)", 0.0, 1.0),
-            ("E0", "E₀ (латентные)", 0.0, 1.0),
-            ("Q0", "Q₀ (изолированные)", 0.0, 1.0),
-            ("M0", "M₀ (материнский иммунитет)", 0.0, 1.0)
-        ]
-        
-        for init_code, init_desc, min_val, max_val in initials:
-            row = ttk.Frame(initials_group)
-            row.pack(fill=tk.X, pady=2)
-            
-            ttk.Label(row, text=init_desc, width=25).pack(side=tk.LEFT)
-            entry = ttk.Entry(row, width=8)
-            entry.pack(side=tk.RIGHT)
-            self.init_entries[init_code] = entry
-
-        # Временные границы
+        # Временной диапазон — общий, можно оставить
         time_group = ttk.LabelFrame(scrollable_frame, text="Временной диапазон", padding=10)
         time_group.pack(fill=tk.X, pady=5)
-        
+
         ttk.Label(time_group, text="Начальная дата:").pack(anchor='w', pady=(0, 5))
         self.start_entry = DateEntry(time_group, date_pattern='dd.mm.yyyy')
         self.start_entry.pack(fill=tk.X, pady=(0, 10))
-        
+
         ttk.Label(time_group, text="Конечная дата:").pack(anchor='w', pady=(0, 5))
         self.end_entry = DateEntry(time_group, date_pattern='dd.mm.yyyy')
         self.end_entry.pack(fill=tk.X)
@@ -436,16 +491,16 @@ class EpidemicApp:
         # Группа загрузки данных
         load_group = ttk.LabelFrame(parent, text="Загрузка данных", padding=10)
         load_group.pack(fill=tk.BOTH, pady=5, expand=True)
-        
+            
         ttk.Button(load_group, text="Загрузить данные из CSV", 
-                  command=self.load_csv_data).pack(fill=tk.X, pady=5)
+                command=self.load_csv_data).pack(fill=tk.X, pady=5)
 
         # Группа экспорта результатов
         export_group = ttk.LabelFrame(parent, text="Экспорт результатов", padding=10)
         export_group.pack(fill=tk.BOTH, pady=5)
-        
+            
         ttk.Button(export_group, text="Экспорт в Excel и ZIP", 
-                  command=self.export_results).pack(fill=tk.X, pady=5)
+                command=self.export_results).pack(fill=tk.X, pady=5)
         
     def create_graphs(self, parent):
         """настройка графиков для отображения результатов"""
@@ -490,20 +545,6 @@ class EpidemicApp:
     
     def set_default_values(self):
         """установка значений по умолчанию"""
-        # Установка значений по умолчанию для параметров
-        self.param_entries["beta"].insert(0, "0.3")
-        self.param_entries["gamma"].insert(0, "0.1")
-        self.param_entries["delta"].insert(0, "0.01")
-        self.param_entries["sigma"].insert(0, "0.2")
-        self.param_entries["mu"].insert(0, "0.05")
-        
-        # Установка значений по умолчанию для начальных условий
-        self.init_entries["S0"].insert(0, "0.99")
-        self.init_entries["I0"].insert(0, "0.01")
-        self.init_entries["R0"].insert(0, "0.0")
-        self.init_entries["E0"].insert(0, "0.0")
-        self.init_entries["Q0"].insert(0, "0.0")
-        self.init_entries["M0"].insert(0, "0.0")
         
         # Установка дат по умолчанию
         today = datetime.now()
@@ -511,17 +552,27 @@ class EpidemicApp:
         self.end_entry.set_date(today + timedelta(days=100))
     
     def update_model_selection(self):
-        """ограничение выбора моделей до 4"""
-        # Подсчет выбранных моделей
-        selected = sum(var.get() for var in self.model_vars.values())
-        
-        # Если выбрано больше 4 моделей, снимаем последний выбор
-        if selected > 4:
-            for model_code, var in reversed(self.model_vars.items()):
-                if var.get():
-                    var.set(False)
-                    messagebox.showwarning("Предупреждение", "Можно выбрать не более 4 моделей одновременно")
+        selected_models = [code for code, var in self.model_vars.items() if var.get()]
+
+        if len(selected_models) > 4:
+            for code in reversed(self.model_vars):
+                if self.model_vars[code].get():
+                    self.model_vars[code].set(False)
+                    messagebox.showwarning("Предупреждение", "Можно выбрать не более 4 моделей")
                     break
+            return
+
+        # Удаление вкладок, которых больше нет
+        for code in list(self.model_param_tabs):
+            if code not in selected_models:
+                tab = self.model_param_tabs[code]["frame"]
+                self.params_notebook.forget(tab)
+                del self.model_param_tabs[code]
+
+        # Добавление новых вкладок
+        for code in selected_models:
+            if code not in self.model_param_tabs:
+                self.create_model_params_tab(code)
     
     def run_simulation(self):
         """запуск моделирования"""
@@ -533,8 +584,19 @@ class EpidemicApp:
         
         # Проверка корректности ввода параметров
         try:
-            params = {k: float(e.get()) if e.get() else 0.0 for k, e in self.param_entries.items()}
-            initials = {k: float(e.get()) if e.get() else 0.0 for k, e in self.init_entries.items()}
+            for i, model_code in enumerate(selected_models):
+                model_tab = self.model_param_tabs.get(model_code)
+                if not model_tab:
+                    continue
+                param_entries = model_tab["param_entries"]
+                init_entries = model_tab["init_entries"]
+
+                try:
+                    params = {k: float(e.get()) for k, e in param_entries.items()}
+                    initials = {k: float(e.get()) for k, e in init_entries.items()}
+                except ValueError:
+                    messagebox.showerror("Ошибка", f"Некорректные значения для модели {model_code}")
+                    continue
         except ValueError:
             messagebox.showerror("Ошибка", "Некорректные значения параметров")
             return
@@ -635,7 +697,8 @@ class EpidemicApp:
         if not country:
             messagebox.showwarning("Ошибка", "Выберите страну")
             return
-        
+
+        # --- ОЦЕНКА НАЧАЛЬНЫХ УСЛОВИЙ ---
         try:
             # Получаем выбранные даты
             start_date = self.data_start_entry.get_date()
@@ -667,13 +730,19 @@ class EpidemicApp:
             R0 = latest["Recovered"] / total
 
             # Обновление начальных значений в основном интерфейсе
-            for entry in self.init_entries.values():
-                entry.delete(0, tk.END)
-                
-            self.init_entries["S0"].insert(0, f"{S0:.4f}")
-            self.init_entries["I0"].insert(0, f"{I0:.4f}")
-            self.init_entries["R0"].insert(0, f"{R0:.4f}")
-            
+            for tab in self.model_param_tabs.values():
+                init_entries = tab["init_entries"]
+                for key in ("S0", "I0", "R0"):
+                    if key in init_entries:
+                        init_entries[key].delete(0, tk.END)
+
+                if "S0" in init_entries:
+                    init_entries["S0"].insert(0, f"{S0:.4f}")
+                if "I0" in init_entries:
+                    init_entries["I0"].insert(0, f"{I0:.4f}")
+                if "R0" in init_entries:
+                    init_entries["R0"].insert(0, f"{R0:.4f}")
+
             # Устанавливаем даты моделирования (по умолчанию продолжаем после выбранного диапазона)
             self.start_entry.set_date(end_date)
             self.end_entry.set_date(end_date + timedelta(days=100))
@@ -682,6 +751,45 @@ class EpidemicApp:
             messagebox.showinfo("Успех", f"Данные для {country} за период {start_date.strftime('%d.%m.%Y')}-{end_date.strftime('%d.%m.%Y')} успешно загружены")
         except Exception as e:
             messagebox.showerror("Ошибка", f"Не удалось обработать данные: {str(e)}")
+
+        # --- ОЦЕНКА ПАРАМЕТРОВ ---
+        try:
+            df_country["Infected"] = df_country["Confirmed"] - df_country["Recovered"] - df_country["Deaths"]
+            df_country["Removed"] = df_country["Recovered"] + df_country["Deaths"]
+            df_country["Susceptible"] = 1 - df_country["Infected"]/total - df_country["Removed"]/total
+
+            I = df_country["Infected"].values / total
+            R = df_country["Removed"].values / total
+            S = df_country["Susceptible"].values
+
+            dI = np.diff(I)
+            dR = np.diff(R)
+            I_mid = I[:-1]
+            S_mid = S[:-1]
+
+            # γ = dR / I, только для I > 1e-6
+            gamma_mask = I_mid > 1e-6
+            gamma_vals = dR[gamma_mask] / I_mid[gamma_mask]
+            gamma = np.clip(np.mean(gamma_vals[np.isfinite(gamma_vals)]), 0.01, 1.0)
+
+            # β = (dI + γ·I) / (S·I), только если S·I > 1e-6
+            beta_mask = (S_mid * I_mid) > 1e-6
+            beta_vals = (dI[beta_mask] + gamma * I_mid[beta_mask]) / (S_mid[beta_mask] * I_mid[beta_mask])
+            beta = np.clip(np.mean(beta_vals[np.isfinite(beta_vals)]), 0.01, 1.0)
+
+            for tab in self.model_param_tabs.values():
+                param_entries = tab["param_entries"]
+                if "beta" in param_entries:
+                    param_entries["beta"].delete(0, tk.END)
+                    param_entries["beta"].insert(0, f"{beta:.4f}")
+                if "gamma" in param_entries:
+                    param_entries["gamma"].delete(0, tk.END)
+                    param_entries["gamma"].insert(0, f"{gamma:.4f}")
+
+        except Exception as e:
+            print("Не удалось вычислить параметры:", e)
+            beta = 0.3
+            gamma = 0.1
     
     def export_results(self):
         """экспорт результатов в ZIP-архив"""
@@ -776,6 +884,68 @@ class EpidemicApp:
             messagebox.showinfo("Экспорт завершён", f"Файлы успешно сохранены в архив:\n{save_path}")
         except Exception as e:
             messagebox.showerror("Ошибка", f"Не удалось экспортировать данные: {str(e)}")
+
+    def open_model_docs(self):
+        """Открывает окно со справкой по моделям"""
+        doc_window = tk.Toplevel(self.root)
+        doc_window.title("Справка по моделям")
+        doc_window.geometry("600x500")
+
+        notebook = ttk.Notebook(doc_window)
+        notebook.pack(fill=tk.BOTH, expand=True)
+
+        docs = {
+            "SI": {
+                "desc": "Модель SI описывает распространение инфекции, у которых нет стадии выздоровления.\n\nСистема дифференциальных уравнений:\n  dS/dt = -βSI\n  dI/dt = βSI",
+                "params": "β — скорость передачи инфекции.\n\nНачальные: S₀, I₀",
+                "recommended": "β ∈ [0.2, 0.6]\n\nS₀ ≈ 0.99\nI₀ ≈ 0.01",
+                "usage": "Подходит для: компьютерных вирусов, хронических инфекций без выздоровления"
+            },
+            "SIR": {
+                "desc": "SIR — базовая эпидемиологическая модель.\n\nСистема дифференциальных уравнений:\n  dS/dt = -βSI\n  dI/dt = βSI - γI\n  dR/dt = γI",
+                "params": "β — скорость передачи инфекции\nγ — скорость выздоровления",
+                "recommended": "β ≈ 0.3\nγ ≈ 0.1\n\nS₀ ≈ 0.99\nI₀ ≈ 0.01\nR₀ ≈ 0.0",
+                "usage": "Подходит для: гриппа, COVID-19, кори и т.п."
+            },
+            "SIRS": {
+                "desc": "SIRS — модель, учитывающая потерю иммунитета.\n\nСистема дифференциальных уравнений:\n  dS/dt = -βSI + δR\n  dI/dt = βSI - γI\n  dR/dt = γI - δR",
+                "params": "β — скорость передачи инфекции\nγ — скорость выздоровления\nδ — скорость потери иммунитета",
+                "recommended": "β ≈ 0.3\nγ ≈ 0.1\nδ ≈ 0.01\n\nS₀ ≈ 0.99\nI₀ ≈ 0.02\nR₀ ≈ 0.00",
+                "usage": "Применяется для заболеваний с временным иммунитетом (грипп, риновирус)"
+            },
+            "SEIR": {
+                "desc": "SEIR — учитывает инкубационный период.\n\nСистема дифференциальных уравнений:\n  dS/dt = -βSI\n  dE/dt = βSI - σE\n  dI/dt = σE - γI\n  dR/dt = γI",
+                "params": "β — скорость передачи инфекции\nγ — скорость выздоровления\nσ — скорость перехода в инфекционную фазу",
+                "recommended": "β ≈ 0.3\nγ ≈ 0.1\nσ ≈ 0.2\n\nS₀ ≈ 0.99\nE₀ ≈ 0.01\nI₀ ≈ 0.02\nR₀ ≈ 0.00",
+                "usage": "Подходит для: COVID-19, Эболы, кори"
+            },
+            "SIQR": {
+                "desc": "SIQR — модель с изоляцией инфицированных.\n\nСистема дифференциальных уравнений:\n  dS/dt = -βSI\n  dI/dt = βSI - γI - δI\n  dQ/dt = δI - μQ\n  dR/dt = γI + μQ",
+                "params": "β — скорость передачи инфекции\nγ — скорость выздоровления\nδ — скорость изоляции\nμ — скорость выхода из карантина",
+                "recommended": "β ≈ 0.3\nγ ≈ 0.1\nδ ≈ 0.05\nμ ≈ 0.05\n\nS₀ ≈ 0.99\nI₀ ≈ 0.02\nQ₀ ≈ 0.00\nR₀ ≈ 0.00",
+                "usage": "Применяется в условиях карантина, например, COVID-19"
+            },
+            "MSEIR": {
+                "desc": "MSEIR — добавляет материнский иммунитет. Модель учитывает естественную рождаемость и рождаемость.\n\nСистема дифференциальных уравнений:\n  dM/dt = μN - δM - μM\n  dS/dt = δM - βSI/N - μS\n  dE/dt = βSI/N - σE - μE\n  dI/dt = σE - γI - μI\n  dR/dt = γI - μR",
+                "params": "β — скорость передачи инфекции\nγ — скорость выздоровления\nμ — естественная смертность/рождаемость\nδ — скорость потери материнского иммунитета\nσ — скорость перехода в инфекционную фазу",
+                "recommended": "β ≈ 0.3\nγ ≈ 0.1\nμ ≈ 0.05\nδ ≈ 0.02\nσ ≈ 0.2\n\nM₀ ≈ 0.1\nS₀ ≈ 0.99\nE₀ ≈ 0.01\nI₀ ≈ 0.02\nR₀ ≈ 0.00",
+                "usage": "Применяется для долгосрочного анализа в популяциях с рождениями (например, детские инфекции)"
+            }
+        }
+
+        for code, info in docs.items():
+            frame = ttk.Frame(notebook)
+            notebook.add(frame, text=code)
+
+            text = tk.Text(frame, wrap=tk.WORD, font=("Arial", 10))
+            text.insert(tk.END, f"📌 Описание модели:\n{info['desc']}\n\n"
+                                f"📐 Параметры:\n{info['params']}\n\n"
+                                f"✅ Рекомендуемые значения:\n{info['recommended']}\n\n"
+                                f"🧪 Применение:\n{info['usage']}")
+            text.configure(state='disabled')
+            text.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+
 
 if __name__ == "__main__":
     root = tk.Tk()
