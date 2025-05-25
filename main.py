@@ -576,50 +576,38 @@ class EpidemicApp:
     
     def run_simulation(self):
         """запуск моделирования"""
-        # Проверка, что выбрана хотя бы одна модель
         selected_models = [name for name, var in self.model_vars.items() if var.get()]
         if not selected_models:
             messagebox.showwarning("Ошибка", "Выберите хотя бы одну модель")
             return
-        
-        # Проверка корректности ввода параметров
-        try:
-            for i, model_code in enumerate(selected_models):
-                model_tab = self.model_param_tabs.get(model_code)
-                if not model_tab:
-                    continue
-                param_entries = model_tab["param_entries"]
-                init_entries = model_tab["init_entries"]
 
-                try:
-                    params = {k: float(e.get()) for k, e in param_entries.items()}
-                    initials = {k: float(e.get()) for k, e in init_entries.items()}
-                except ValueError:
-                    messagebox.showerror("Ошибка", f"Некорректные значения для модели {model_code}")
-                    continue
-        except ValueError:
-            messagebox.showerror("Ошибка", "Некорректные значения параметров")
-            return
-        
-        # Проверка дат
         if self.end_entry.get_date() <= self.start_entry.get_date():
             messagebox.showerror("Ошибка", "Конечная дата должна быть позже начальной")
             return
-        
+
         self.result_data.clear()
         days = (self.end_entry.get_date() - self.start_entry.get_date()).days
         t = np.linspace(0, days, days + 1)
         method = self.method_var.get()
-        
-        # Очистка графиков перед новым моделированием
+
         for ax in self.model.axes:
             ax.clear()
-        
-        # Запуск выбранных моделей
+
         for i, model_code in enumerate(selected_models):
-            if i >= 4:  # Не более 4 моделей
+            if i >= 4:
                 break
-                
+
+            model_tab = self.model_param_tabs.get(model_code)
+            if not model_tab:
+                continue
+
+            try:
+                params = {k: float(e.get()) for k, e in model_tab["param_entries"].items()}
+                initials = {k: float(e.get()) for k, e in model_tab["init_entries"].items()}
+            except ValueError:
+                messagebox.showerror("Ошибка", f"Некорректные значения для модели {model_code}")
+                continue
+
             if model_code == "SI":
                 sol = self.model.run_si_model(t, params, initials, i, return_solution=True, method=method)
             elif model_code == "SIR":
@@ -632,13 +620,15 @@ class EpidemicApp:
                 sol = self.model.run_siqr_model(t, params, initials, i, return_solution=True, method=method)
             elif model_code == "MSEIR":
                 sol = self.model.run_mseir_model(t, params, initials, i, return_solution=True, method=method)
-            
+            else:
+                sol = None
+
             if sol:
                 self.result_data[model_code] = pd.DataFrame(sol, index=t)
-        
-        # Обновление всех графиков
+
         for canvas in self.model.canvases:
             canvas.draw()
+
     
     def load_csv_data(self):
         """загрузка данных из CSV"""
