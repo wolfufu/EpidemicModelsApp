@@ -928,10 +928,10 @@ class EpidemicApp:
             notebook.add(frame, text=code)
 
             text = tk.Text(frame, wrap=tk.WORD, font=("Arial", 10))
-            text.insert(tk.END, f"📌 Описание модели:\n{info['desc']}\n\n"
-                                f"📐 Параметры:\n{info['params']}\n\n"
-                                f"✅ Рекомендуемые значения:\n{info['recommended']}\n\n"
-                                f"🧪 Применение:\n{info['usage']}")
+            text.insert(tk.END, f"Описание модели:\n{info['desc']}\n\n"
+                                f"Параметры:\n{info['params']}\n\n"
+                                f"Рекомендуемые значения:\n{info['recommended']}\n\n"
+                                f"Применение:\n{info['usage']}")
             text.configure(state='disabled')
             text.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
