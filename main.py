@@ -743,6 +743,8 @@ class EpidemicApp:
             messagebox.showerror("Ошибка", f"Не удалось обработать данные: {str(e)}")
 
         # --- ОЦЕНКА ПАРАМЕТРОВ ---
+        # γ = dR / I, только для I > 1e-6
+        # β = (dI + γ·I) / (S·I), только если S·I > 1e-6
         try:
             df_country["Infected"] = df_country["Confirmed"] - df_country["Recovered"] - df_country["Deaths"]
             df_country["Removed"] = df_country["Recovered"] + df_country["Deaths"]
@@ -752,20 +754,34 @@ class EpidemicApp:
             R = df_country["Removed"].values / total
             S = df_country["Susceptible"].values
 
-            dI = np.diff(I)
-            dR = np.diff(R)
-            I_mid = I[:-1]
-            S_mid = S[:-1]
+            beta_list = []
+            gamma_list = []
 
-            # γ = dR / I, только для I > 1e-6
-            gamma_mask = I_mid > 1e-6
-            gamma_vals = dR[gamma_mask] / I_mid[gamma_mask]
-            gamma = np.clip(np.mean(gamma_vals[np.isfinite(gamma_vals)]), 0.01, 1.0)
+            for i in range(1, len(df_country)):
+                I_prev = I[i - 1]
+                I_curr = I[i]
+                R_prev = R[i - 1]
+                R_curr = R[i]
+                S_prev = S[i - 1]
 
-            # β = (dI + γ·I) / (S·I), только если S·I > 1e-6
-            beta_mask = (S_mid * I_mid) > 1e-6
-            beta_vals = (dI[beta_mask] + gamma * I_mid[beta_mask]) / (S_mid[beta_mask] * I_mid[beta_mask])
-            beta = np.clip(np.mean(beta_vals[np.isfinite(beta_vals)]), 0.01, 1.0)
+                dI = I_curr - I_prev
+                dR = R_curr - R_prev
+
+                gamma_i = None
+                if I_prev > 1e-6:
+                    gamma_i = dR / I_prev
+                    if np.isfinite(gamma_i):
+                        gamma_list.append(gamma_i)
+
+                if I_prev > 1e-6 and S_prev * I_prev > 1e-6:
+                    gamma_eff = gamma_i if gamma_i is not None else 0.1
+                    beta_i = (dI + gamma_eff * I_prev) / (S_prev * I_prev)
+                    if np.isfinite(beta_i):
+                        beta_list.append(beta_i)
+
+            # Средние значения
+            gamma = np.clip(np.mean(gamma_list), 0.01, 1.0) if gamma_list else 0.1
+            beta = np.clip(np.mean(beta_list), 0.01, 1.0) if beta_list else 0.3
 
             for tab in self.model_param_tabs.values():
                 param_entries = tab["param_entries"]
@@ -775,11 +791,8 @@ class EpidemicApp:
                 if "gamma" in param_entries:
                     param_entries["gamma"].delete(0, tk.END)
                     param_entries["gamma"].insert(0, f"{gamma:.4f}")
-
         except Exception as e:
             print("Не удалось вычислить параметры:", e)
-            beta = 0.3
-            gamma = 0.1
     
     def export_results(self):
         """экспорт результатов в ZIP-архив"""
