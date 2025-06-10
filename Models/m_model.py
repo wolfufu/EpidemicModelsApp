@@ -37,7 +37,7 @@ for j in range(len(I0)):
     plt.plot(sol.t, sol.y[j+1], label=f'I{j+1} (Стадия {j+1})', linestyle='dashed')
 plt.plot(sol.t, sol.y[-1], label='Выздоровевшие', color='green')
 plt.xlabel('Дни')
-plt.ylabel('Доля популяции')
+plt.ylabel('Доли популяции')
 plt.title('Multi-stage (M-модель)')
 plt.legend()
 plt.grid()

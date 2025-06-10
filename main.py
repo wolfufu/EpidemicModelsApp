@@ -96,6 +96,16 @@ class EpidemicModels(NumericalMethods):
         dRdt = gamma * I - mu * R
         return np.array([dMdt, dSdt, dEdt, dIdt, dRdt])
     
+    def multi_stage_model(self, y, t, beta, k1, k2, k3, gamma):
+        """Модель с несколькими стадиями инфекции (3 стадии)"""
+        S, I1, I2, I3, R = y
+        dSdt = -beta * S * I1 + gamma * R
+        dI1dt = beta * S * I1 - k1 * I1
+        dI2dt = k1 * I1 - k2 * I2
+        dI3dt = k2 * I2 - k3 * I3
+        dRdt = k3 * I3 - gamma * R
+        return np.array([dSdt, dI1dt, dI2dt, dI3dt, dRdt])
+    
     def run_si_model(self, t, params, initials, plot_index, return_solution=False, method="runge_kutta"):
         """Запускает SI модель на указанном графике"""
         y0 = [initials["S0"], initials["I0"]]
@@ -264,6 +274,37 @@ class EpidemicModels(NumericalMethods):
 
         if return_solution:
             return {"S": S, "I": I, "Q": Q, "R": R}
+        
+    def run_m_model(self, t, params, initials, plot_index, return_solution=False, method="runge_kutta"):
+        """Запускает M-модель на указанном графике"""
+        y0 = [initials["S0"], initials["I10"], initials["I20"], initials["I30"], initials["R0"]]
+
+        if method == "runge_kutta":
+            self.runge_kutta_4(self.multi_stage_model, y0, t, 
+                        (params["beta"], params["k1"], params["k2"], params["k3"], params["gamma"]))
+        else:
+            self.euler_method(self.multi_stage_model, y0, t, 
+                        (params["beta"], params["k1"], params["k2"], params["k3"], params["gamma"]))
+
+        S, I1, I2, I3, R = self.result
+        
+        ax = self.axes[plot_index]
+        ax.clear()
+        ax.plot(t, S, 'b', label='Восприимчивые')
+        ax.plot(t, I1, 'r--', label='I1 (Стадия 1)')
+        ax.plot(t, I2, 'm--', label='I2 (Стадия 2)')
+        ax.plot(t, I3, 'c--', label='I3 (Стадия 3)')
+        ax.plot(t, R, 'g', label='Выздоровевшие')
+        ax.set_ylim(0, 1)
+        ax.set_xlabel('Дни')
+        ax.set_ylabel('Доля населения')
+        ax.grid(True)
+        ax.legend()
+        ax.set_title('M-модель (3 стадии)')
+        self.canvases[plot_index].draw()
+        
+        if return_solution:
+            return {"S": S, "I1": I1, "I2": I2, "I3": I3, "R": R}
 
 class EpidemicApp:
     def __init__(self, root):
@@ -346,6 +387,7 @@ class EpidemicApp:
             "SEIR": [("beta", "β"), ("sigma", "σ"), ("gamma", "γ")],
             "SIQR": [("beta", "β"), ("gamma", "γ"), ("delta", "δ"), ("mu", "μ")],
             "MSEIR": [("mu", "μ"), ("delta", "δ"), ("beta", "β"), ("sigma", "σ"), ("gamma", "γ")],
+            "M": [("beta", "β"), ("k1", "k₁"), ("k2", "k₂"), ("k3", "k₃"), ("gamma", "γ")]
         }
 
         init_definitions = {
@@ -355,6 +397,7 @@ class EpidemicApp:
             "SEIR": [("S0", "S₀"), ("E0", "E₀"), ("I0", "I₀"), ("R0", "R₀")],
             "SIQR": [("S0", "S₀"), ("I0", "I₀"), ("Q0", "Q₀"), ("R0", "R₀")],
             "MSEIR": [("M0", "M₀"), ("S0", "S₀"), ("E0", "E₀"), ("I0", "I₀"), ("R0", "R₀")],
+            "M": [("S0", "S₀"), ("I10", "I₁₀"), ("I20", "I₂₀"), ("I30", "I₃₀"), ("R0", "R₀")]
         }
 
         for code, label in param_definitions.get(model_code, []):
@@ -391,11 +434,23 @@ class EpidemicApp:
             param_entries["sigma"].insert(0, "0.2")
         if "mu" in param_entries:
             param_entries["mu"].insert(0, "0.05")
+        if "k1" in param_entries:
+            param_entries["k1"].insert(0, "0.3")
+        if "k2" in param_entries:
+            param_entries["k2"].insert(0, "0.2")
+        if "k3" in param_entries:
+            param_entries["k3"].insert(0, "0.1")
 
         if "S0" in init_entries:
             init_entries["S0"].insert(0, "0.99")
         if "I0" in init_entries:
             init_entries["I0"].insert(0, "0.01")
+        if "I10" in init_entries:
+            init_entries["I10"].insert(0, "0.1")
+        if "I20" in init_entries:
+            init_entries["I20"].insert(0, "0.0")
+        if "I30" in init_entries:
+            init_entries["I30"].insert(0, "0.0")
         if "R0" in init_entries:
             init_entries["R0"].insert(0, "0.0")
         if "E0" in init_entries:
@@ -418,7 +473,8 @@ class EpidemicApp:
             ('SIRS', 'Модель SIRS (с временным иммунитетом)'),
             ('SEIR', 'Модель SEIR (с латентным периодом)'),
             ('SIQR', 'Модель SIQR (с изоляцией)'),
-            ('MSEIR', 'Модель MSEIR (с материнским иммунитетом)')
+            ('MSEIR', 'Модель MSEIR (с материнским иммунитетом)'),
+            ('M', 'M-модель (3 стадии инфекции)')  
         ]
         
         for model_code, model_desc in models:
@@ -618,6 +674,8 @@ class EpidemicApp:
                 sol = self.model.run_siqr_model(t, params, initials, i, return_solution=True, method=method)
             elif model_code == "MSEIR":
                 sol = self.model.run_mseir_model(t, params, initials, i, return_solution=True, method=method)
+            elif model_code == "M":
+                sol = self.model.run_m_model(t, params, initials, i, return_solution=True, method=method)
             else:
                 sol = None
 
@@ -931,6 +989,12 @@ class EpidemicApp:
                 "params": "β — скорость передачи инфекции\nγ — скорость выздоровления\nμ — естественная смертность/рождаемость\nδ — скорость потери материнского иммунитета\nσ — скорость перехода в инфекционную фазу",
                 "recommended": "β ≈ 0.3\nγ ≈ 0.1\nμ ≈ 0.05\nδ ≈ 0.02\nσ ≈ 0.2\n\nM₀ ≈ 0.1\nS₀ ≈ 0.99\nE₀ ≈ 0.01\nI₀ ≈ 0.02\nR₀ ≈ 0.00",
                 "usage": "Применяется для долгосрочного анализа в популяциях с рождениями (например, детские инфекции)"
+            },
+            "M": {
+                "desc": "M-модель описывает инфекцию с 3 стадиями развития.\n\nСистема дифференциальных уравнений:\n  dS/dt = -βSI₁ + γR\n  dI₁/dt = βSI₁ - k₁I₁\n  dI₂/dt = k₁I₁ - k₂I₂\n  dI₃/dt = k₂I₂ - k₃I₃\n  dR/dt = k₃I₃ - γR",
+                "params": "β — скорость передачи инфекции\nk₁, k₂, k₃ — скорости переходов между стадиями\nγ — скорость потери иммунитета",
+                "recommended": "β ≈ 0.5\nk₁ ≈ 0.3\nk₂ ≈ 0.2\nk₃ ≈ 0.1\nγ ≈ 0.05\n\nS₀ ≈ 0.9\nI₁₀ ≈ 0.1\nI₂₀ ≈ 0.0\nI₃₀ ≈ 0.0\nR₀ ≈ 0.0",
+                "usage": "Подходит для инфекций с несколькими стадиями развития (например, ВИЧ, туберкулез)"
             }
         }
 
