@@ -404,8 +404,6 @@ class EpidemicApp:
             init_entries["Q0"].insert(0, "0.0")
         if "M0" in init_entries:
             init_entries["M0"].insert(0, "0.0")
-
-
     
     def create_models_tab(self, parent):
         """вкладка выбора моделей"""
@@ -947,8 +945,6 @@ class EpidemicApp:
                                 f"Применение:\n{info['usage']}")
             text.configure(state='disabled')
             text.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-
-
 
 if __name__ == "__main__":
     root = tk.Tk()
