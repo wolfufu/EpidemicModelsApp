@@ -501,9 +501,7 @@ class EpidemicApp:
         # Кнопка справки по моделям
         ttk.Button(parent, text="Справка по моделям", 
                    command=self.open_model_docs).pack(fill=tk.X, pady=5)
-
-
-        
+    
     def create_params_tab(self, parent):
         """вкладка параметров с динамическими вкладками под каждую модель"""
         canvas = tk.Canvas(parent)
