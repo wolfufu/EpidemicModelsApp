@@ -327,6 +327,13 @@ class EpidemicApp:
         self.create_widgets()
         self.set_default_values()
 
+    def validate_sum(self, entries_dict, max_sum=1.0):
+        """Проверяет, что сумма значений не превышает max_sum"""
+        try:
+            total = sum(float(entry.get()) for entry in entries_dict.values() if entry.get())
+            return total <= max_sum
+        except ValueError:
+            return False  # если есть некорректные значения, считаем невалидным
 
     def create_widgets(self):
         """создание основного интерфейса"""
@@ -367,6 +374,8 @@ class EpidemicApp:
     def create_model_params_tab(self, model_code):
         frame = ttk.Frame(self.params_notebook)
 
+        validate_num = self.root.register(self.create_validate_func(0, 1))
+
         # Параметры модели
         param_group = ttk.LabelFrame(frame, text="Параметры модели", padding=10)
         param_group.pack(fill=tk.X, pady=5)
@@ -404,17 +413,31 @@ class EpidemicApp:
             row = ttk.Frame(param_group)
             row.pack(fill=tk.X, pady=2)
             ttk.Label(row, text=label, width=25).pack(side=tk.LEFT)
-            entry = ttk.Entry(row, width=8)
+            entry = ttk.Entry(row, width=8, validate="key", 
+                            validatecommand=(validate_num, '%P'))
             entry.pack(side=tk.RIGHT)
             param_entries[code] = entry
-
+        
         for code, label in init_definitions.get(model_code, []):
             row = ttk.Frame(init_group)
             row.pack(fill=tk.X, pady=2)
             ttk.Label(row, text=label, width=25).pack(side=tk.LEFT)
-            entry = ttk.Entry(row, width=8)
+            entry = ttk.Entry(row, width=8, validate="key", 
+                            validatecommand=(validate_num, '%P'))
             entry.pack(side=tk.RIGHT)
             init_entries[code] = entry
+
+        def on_entry_change(*args):
+            if not self.validate_sum(init_entries):
+                messagebox.showwarning("Ошибка", "Сумма начальных значений не должна превышать 1")
+            if not self.validate_sum(param_entries):
+                messagebox.showwarning("Ошибка", "Сумма параметров не должна превышать 1")
+        
+        for entry in param_entries.values():
+            entry.bind("<FocusOut>", on_entry_change)
+        
+        for entry in init_entries.values():
+            entry.bind("<FocusOut>", on_entry_change)
 
         # Сохраняем
         self.model_param_tabs[model_code] = {
@@ -632,6 +655,19 @@ class EpidemicApp:
         if not selected_models:
             messagebox.showwarning("Ошибка", "Выберите хотя бы одну модель")
             return
+        
+        for model_code in selected_models:
+            model_tab = self.model_param_tabs.get(model_code)
+            if not model_tab:
+                continue
+                
+            if not self.validate_sum(model_tab["init_entries"]):
+                messagebox.showerror("Ошибка", f"Сумма начальных значений для модели {model_code} превышает 1")
+                return
+                
+            if not self.validate_sum(model_tab["param_entries"]):
+                messagebox.showerror("Ошибка", f"Сумма параметров для модели {model_code} превышает 1")
+                return
 
         if self.end_entry.get_date() <= self.start_entry.get_date():
             messagebox.showerror("Ошибка", "Конечная дата должна быть позже начальной")
@@ -869,54 +905,69 @@ class EpidemicApp:
                 for model_name, df in self.result_data.items():
                     excel_buffer = BytesIO()
                     with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
+                        # Получаем параметры и начальные значения для текущей модели
+                        model_tab = self.model_param_tabs.get(model_name)
+                        if not model_tab:
+                            continue
+                        
                         # Лист 1: Начальные данные
+                        initials_data = {}
+                        for key, entry in model_tab["init_entries"].items():
+                            initials_data[key] = entry.get()
+                        
                         initials_df = pd.DataFrame({
                             'Параметр': ['S₀ (восприимчивые)', 'I₀ (инфицированные)', 'R₀ (выздоровевшие)',
-                                         'E₀ (латентные)', 'Q₀ (изолированные)', 'M₀ (материнский иммунитет)'],
-                            'Значение': [self.init_entries["S0"].get(), self.init_entries["I0"].get(),
-                                        self.init_entries["R0"].get(), self.init_entries["E0"].get(),
-                                        self.init_entries["Q0"].get(), self.init_entries["M0"].get()]
+                                        'E₀ (латентные)', 'Q₀ (изолированные)', 'M₀ (материнский иммунитет)'],
+                            'Значение': [
+                                initials_data.get("S0", ""),
+                                initials_data.get("I0", ""),
+                                initials_data.get("R0", ""),
+                                initials_data.get("E0", ""),
+                                initials_data.get("Q0", ""),
+                                initials_data.get("M0", "")
+                            ]
                         })
                         initials_df.to_excel(writer, sheet_name='Начальные данные', index=False)
                         
                         # Лист 2: Параметры модели
+                        params_data = {}
+                        for key, entry in model_tab["param_entries"].items():
+                            params_data[key] = entry.get()
+                        
                         params_df = pd.DataFrame({
                             'Параметр': ['β (скорость заражения)', 'γ (скорость выздоровления)',
                                         'δ (потеря иммунитета)', 'σ (переход в инфекционные)',
                                         'μ (выход из изоляции)'],
-                            'Значение': [self.param_entries["beta"].get(), self.param_entries["gamma"].get(),
-                                        self.param_entries["delta"].get(), self.param_entries["sigma"].get(),
-                                        self.param_entries["mu"].get()]
+                            'Значение': [
+                                params_data.get("beta", ""),
+                                params_data.get("gamma", ""),
+                                params_data.get("delta", ""),
+                                params_data.get("sigma", ""),
+                                params_data.get("mu", "")
+                            ]
                         })
                         params_df.to_excel(writer, sheet_name='Параметры', index=False)
                         
                         # Лист 3: Решение
-                        # Создаем DataFrame с информацией о методе
                         method_info = pd.DataFrame({
                             'Информация': ['Метод решения:', 'Выбранная модель:'],
-                            'Значение': [self.method_var.get().replace("runge_kutta", "Рунге-Кутта 4-го порядка").replace("euler", "Метод Эйлера"), 
-                                        model_name]
+                            'Значение': [
+                                self.method_var.get().replace("runge_kutta", "Рунге-Кутта 4-го порядка").replace("euler", "Метод Эйлера"), 
+                                model_name
+                            ]
                         })
                         
-                        # Записываем информацию о методе
                         method_info.to_excel(writer, sheet_name='Решение', startrow=0, index=False, header=False)
-                        
-                        # Записываем основные данные с отступом в 2 строки
                         df.to_excel(writer, sheet_name='Решение', startrow=3, index=True)
                         
-                        # Получаем объект worksheet для дополнительного форматирования
                         worksheet = writer.sheets['Решение']
-                        
-                        # Добавляем подпись к индексу
                         worksheet.write(3, 0, 'Дни')
                         
                         # Лист 4: График
                         graph_sheet = writer.book.add_worksheet('График')
-                        
-                        # Создаем график
                         chart = writer.book.add_chart({'type': 'line'})
                         
-                        max_row = len(df) + 4  # Учитываем смещение из-за заголовков
+                        max_row = len(df) + 4
                         categories = f"='Решение'!$A$5:$A${max_row}"
                         
                         for i, col in enumerate(df.columns, 1):
@@ -929,8 +980,6 @@ class EpidemicApp:
                         chart.set_x_axis({'name': 'Дни'})
                         chart.set_y_axis({'name': 'Доля населения'})
                         chart.set_title({'name': f'Модель {model_name} ({method_info.iloc[0,1]})'})
-                        
-                        # Вставляем график на лист График
                         graph_sheet.insert_chart('B2', chart, {'x_scale': 2, 'y_scale': 2})
                     
                     zf.writestr(f"{model_name}.xlsx", excel_buffer.getvalue())
