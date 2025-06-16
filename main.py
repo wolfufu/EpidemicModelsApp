@@ -331,9 +331,9 @@ class EpidemicApp:
         """Проверяет, что сумма значений не превышает max_sum"""
         try:
             total = sum(float(entry.get()) for entry in entries_dict.values() if entry.get())
-            return total <= max_sum
+            return True  # Всегда возвращаем True для параметров
         except ValueError:
-            return False  # если есть некорректные значения, считаем невалидным
+            return False
 
     def create_widgets(self):
         """создание основного интерфейса"""
@@ -430,8 +430,6 @@ class EpidemicApp:
         def on_entry_change(*args):
             if not self.validate_sum(init_entries):
                 messagebox.showwarning("Ошибка", "Сумма начальных значений не должна превышать 1")
-            if not self.validate_sum(param_entries):
-                messagebox.showwarning("Ошибка", "Сумма параметров не должна превышать 1")
         
         for entry in param_entries.values():
             entry.bind("<FocusOut>", on_entry_change)
@@ -663,10 +661,6 @@ class EpidemicApp:
                 
             if not self.validate_sum(model_tab["init_entries"]):
                 messagebox.showerror("Ошибка", f"Сумма начальных значений для модели {model_code} превышает 1")
-                return
-                
-            if not self.validate_sum(model_tab["param_entries"]):
-                messagebox.showerror("Ошибка", f"Сумма параметров для модели {model_code} превышает 1")
                 return
 
         if self.end_entry.get_date() <= self.start_entry.get_date():
