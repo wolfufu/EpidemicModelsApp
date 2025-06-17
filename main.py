@@ -445,42 +445,71 @@ class EpidemicApp:
         }
         self.params_notebook.add(frame, text=model_code)
 
-        if "beta" in param_entries:
-            param_entries["beta"].insert(0, "0.3")
-        if "gamma" in param_entries:
-            param_entries["gamma"].insert(0, "0.1")
-        if "delta" in param_entries:
-            param_entries["delta"].insert(0, "0.01")
-        if "sigma" in param_entries:
-            param_entries["sigma"].insert(0, "0.2")
-        if "mu" in param_entries:
-            param_entries["mu"].insert(0, "0.05")
-        if "k1" in param_entries:
-            param_entries["k1"].insert(0, "0.3")
-        if "k2" in param_entries:
-            param_entries["k2"].insert(0, "0.2")
-        if "k3" in param_entries:
-            param_entries["k3"].insert(0, "0.1")
+        # Установка значений по умолчанию для параметров
+        default_params = {
+            "beta": "0.35",    # Базовая скорость заражения (увеличено для наглядности)
+            "gamma": "0.15",   # Скорость выздоровления
+            "delta": "0.02",   # Скорость потери иммунитета (SIRS) или изоляции (SIQR)
+            "sigma": "0.25",   # Скорость перехода из латентной стадии в инфекционную (SEIR)
+            "mu": "0.03",      # Скорость выхода из изоляции (SIQR) или смертности (MSEIR)
+            "k1": "0.35",      # Скорость перехода I1->I2 (M-модель)
+            "k2": "0.25",      # Скорость перехода I2->I3 (M-модель)
+            "k3": "0.15"       # Скорость перехода I3->R (M-модель)
+        }
+        
+        for param, value in default_params.items():
+            if param in param_entries:
+                param_entries[param].insert(0, value)
 
-        if "S0" in init_entries:
-            init_entries["S0"].insert(0, "0.99")
-        if "I0" in init_entries:
-            init_entries["I0"].insert(0, "0.01")
-        if "I10" in init_entries:
-            init_entries["I10"].insert(0, "0.1")
-        if "I20" in init_entries:
-            init_entries["I20"].insert(0, "0.0")
-        if "I30" in init_entries:
-            init_entries["I30"].insert(0, "0.0")
-        if "R0" in init_entries:
-            init_entries["R0"].insert(0, "0.0")
-        if "E0" in init_entries:
-            init_entries["E0"].insert(0, "0.0")
-        if "Q0" in init_entries:
-            init_entries["Q0"].insert(0, "0.0")
-        if "M0" in init_entries:
-            init_entries["M0"].insert(0, "0.0")
-    
+        # Установка значений по умолчанию для начальных условий
+        model_default_inits = {
+            "SI": {
+                "S0": "0.95",  # 95% восприимчивых
+                "I0": "0.05"   # 5% инфицированных
+            },
+            "SIR": {
+                "S0": "0.95",
+                "I0": "0.05",
+                "R0": "0.0"
+            },
+            "SIRS": {
+                "S0": "0.93",
+                "I0": "0.05",
+                "R0": "0.02"
+            },
+            "SEIR": {
+                "S0": "0.94",
+                "E0": "0.03",
+                "I0": "0.02",
+                "R0": "0.01"
+            },
+            "SIQR": {
+                "S0": "0.93",
+                "I0": "0.05",
+                "Q0": "0.01",
+                "R0": "0.01"
+            },
+            "MSEIR": {
+                "M0": "0.05",
+                "S0": "0.89",
+                "E0": "0.03",
+                "I0": "0.02",
+                "R0": "0.01"
+            },
+            "M": {
+                "S0": "0.90",
+                "I10": "0.06",
+                "I20": "0.02",
+                "I30": "0.01",
+                "R0": "0.01"
+            }
+        }
+
+        # Убедимся, что сумма начальных значений не превышает 1
+        for init, value in model_default_inits.get(model_code, {}).items():
+            if init in init_entries:
+                init_entries[init].insert(0, value)
+
     def create_models_tab(self, parent):
         """вкладка выбора моделей"""
         # Группа выбора моделей
@@ -964,11 +993,13 @@ class EpidemicApp:
                         max_row = len(df) + 4
                         categories = f"='Решение'!$A$5:$A${max_row}"
                         
+                        # Исправлено: начинаем с 66 (B) и увеличиваем на 1 для каждой колонки
                         for i, col in enumerate(df.columns, 1):
+                            col_letter = chr(65 + i)  # 65 = 'A', 66 = 'B', и т.д.
                             chart.add_series({
-                                'name': f"='Решение'!${chr(66+i)}$4",
+                                'name': f"='Решение'!${col_letter}$4",
                                 'categories': categories,
-                                'values': f"='Решение'!${chr(66+i)}$5:${chr(66+i)}${max_row}",
+                                'values': f"='Решение'!${col_letter}$5:${col_letter}${max_row}",
                             })
                         
                         chart.set_x_axis({'name': 'Дни'})

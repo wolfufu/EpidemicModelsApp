@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 def mseir_model(y, t, mu, delta, beta, sigma, gamma):
     M, S, E, I, R = y
     N = M + S + E + I + R  # Общее население
+    print(N)
 
     # Дифференциальные уравнения
     dMdt = mu * N - delta * M - mu * M
