@@ -324,8 +324,38 @@ class EpidemicApp:
         self.model = EpidemicModels()
         self.result_data = {}
 
+        self.country_population = {}
+        self.load_country_population()
+
         self.create_widgets()
         self.set_default_values()
+
+    def load_country_population(self):
+        """Загружает данные о популяции стран из файла country_pop.txt"""
+        try:
+            with open("country_pop.txt", "r", encoding="utf-8") as file:
+                for line in file:
+                    line = line.strip()
+                    if line and ":" in line:
+                        # Разделяем строку на название страны и популяцию
+                        country, pop = line.split(":", 1)
+                        country = country.strip().strip('"')
+                        
+                        # Обрабатываем популяцию: удаляем подчеркивания и преобразуем в число
+                        pop = pop.strip().strip(",")
+                        pop = pop.replace("_", "")
+                        
+                        try:
+                            self.country_population[country] = int(pop)
+                        except ValueError:
+                            print(f"Ошибка преобразования популяции для страны {country}: {pop}")
+                            
+            print(f"Загружены данные по {len(self.country_population)} странам")
+            
+        except FileNotFoundError:
+            print("Файл country_pop.txt не найден. Данные о популяции не загружены.")
+        except Exception as e:
+            print(f"Ошибка при загрузке данных о популяции: {str(e)}")
 
     def validate_sum(self, entries_dict, max_sum=1.0):
         """Проверяет, что сумма значений не превышает max_sum"""
@@ -824,13 +854,15 @@ class EpidemicApp:
 
             # Берем последние значения в выбранном диапазоне как начальные
             latest = df_country.iloc[-1]
-            total = latest["Confirmed"] + latest["Recovered"] + latest["Deaths"]
-            if total == 0:
-                total = 1  # во избежание деления на 0
-            
-            S0 = 1 - (latest["Confirmed"] + latest["Recovered"] + latest["Deaths"]) / total
-            I0 = latest["Confirmed"] / total
-            R0 = latest["Recovered"] / total
+            country = self.country_cb.get()
+            total_population = self.country_population.get(country, 1)  # Используйте 1, если страна не найдена
+
+            if total_population <= 0:
+                total_population = 1  # Во избежание деления на 0
+
+            S0 = (total_population - latest["Confirmed"] - latest["Recovered"] - latest["Deaths"]) / total_population
+            I0 = latest["Confirmed"] / total_population
+            R0 = (latest["Recovered"] + latest["Deaths"]) / total_population  # Можно учитывать Deaths как часть R
 
             # Обновление начальных значений в основном интерфейсе
             for tab in self.model_param_tabs.values():
@@ -861,10 +893,10 @@ class EpidemicApp:
         try:
             df_country["Infected"] = df_country["Confirmed"] - df_country["Recovered"] - df_country["Deaths"]
             df_country["Removed"] = df_country["Recovered"] + df_country["Deaths"]
-            df_country["Susceptible"] = 1 - df_country["Infected"]/total - df_country["Removed"]/total
+            df_country["Susceptible"] = (total_population - df_country["Infected"] - df_country["Removed"]) / total_population
 
-            I = df_country["Infected"].values / total
-            R = df_country["Removed"].values / total
+            I = df_country["Infected"].values / total_population
+            R = df_country["Removed"].values / total_population
             S = df_country["Susceptible"].values
 
             beta_list = []
