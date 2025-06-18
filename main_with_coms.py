@@ -14,6 +14,7 @@ class NumericalMethods:
         self.result = None
 
     def euler_method(self, model_func, y0, t, args):
+        """Реализация метода Эйлера для решения СДУ"""
         y = np.zeros((len(t), len(y0)))
         y[0] = y0
         
@@ -24,6 +25,7 @@ class NumericalMethods:
         self.result = y.T
     
     def runge_kutta_4(self, model_func, y0, t, args):
+        """Реализация метода Рунге-Кутты 4-го порядка для решения СДУ"""
         y = np.zeros((len(t), len(y0)))
         y[0] = y0
         
@@ -95,6 +97,7 @@ class EpidemicModels(NumericalMethods):
         return np.array([dMdt, dSdt, dEdt, dIdt, dRdt])
     
     def multi_stage_model(self, y, t, beta, k1, k2, k3, gamma):
+        """Модель с несколькими стадиями инфекции (3 стадии)"""
         S, I1, I2, I3, R = y
         dSdt = -beta * S * I1 + gamma * R
         dI1dt = beta * S * I1 - k1 * I1
@@ -104,6 +107,7 @@ class EpidemicModels(NumericalMethods):
         return np.array([dSdt, dI1dt, dI2dt, dI3dt, dRdt])
     
     def run_si_model(self, t, params, initials, plot_index, return_solution=False, method="runge_kutta"):
+        """Запускает SI модель на указанном графике"""
         y0 = [initials["S0"], initials["I0"]]
 
         if method == "runge_kutta":
@@ -129,6 +133,7 @@ class EpidemicModels(NumericalMethods):
             return {"S": S, "I": I}
 
     def run_sir_model(self, t, params, initials, plot_index, return_solution=False, method="runge_kutta"):
+        """Запускает SIR модель на указанном графике"""
         y0 = [initials["S0"], initials["I0"], initials["R0"]]
 
         if method == "runge_kutta":
@@ -155,6 +160,7 @@ class EpidemicModels(NumericalMethods):
             return {"S": S, "I": I, "R": R}
 
     def run_sirs_model(self, t, params, initials, plot_index, return_solution=False, method="runge_kutta"):
+        """Запускает SIRS модель на указанном графике"""
         y0 = [initials["S0"], initials["I0"], initials["R0"]]
 
         if method == "runge_kutta":
@@ -181,6 +187,7 @@ class EpidemicModels(NumericalMethods):
             return {"S": S, "I": I, "R": R}
 
     def run_seir_model(self, t, params, initials, plot_index, return_solution=False, method="runge_kutta"):
+        """Запускает SEIR модель на указанном графике"""
         y0 = [initials["S0"], initials["E0"], initials["I0"], initials["R0"]]
 
         if method == "runge_kutta":
@@ -208,6 +215,7 @@ class EpidemicModels(NumericalMethods):
             return {"S": S, "E": E, "I": I, "R": R}
 
     def run_mseir_model(self, t, params, initials, plot_index, return_solution=False, method="runge_kutta"):
+        """Запускает MSEIR модель на указанном графике"""
         y0 = [initials["M0"], initials["S0"], initials["E0"], initials["I0"], initials["R0"]]
 
         if method == "runge_kutta":
@@ -238,6 +246,7 @@ class EpidemicModels(NumericalMethods):
             return {"M": M, "S": S, "E": E, "I": I, "R": R}
 
     def run_siqr_model(self, t, params, initials, plot_index, return_solution=False, method="runge_kutta"):
+        """Запускает SIQR модель на указанном графике"""
         y0 = [initials["S0"], initials["I0"], initials["Q0"], initials["R0"]]
 
         if method == "runge_kutta":
@@ -267,6 +276,7 @@ class EpidemicModels(NumericalMethods):
             return {"S": S, "I": I, "Q": Q, "R": R}
         
     def run_m_model(self, t, params, initials, plot_index, return_solution=False, method="runge_kutta"):
+        """Запускает M-модель на указанном графике"""
         y0 = [initials["S0"], initials["I10"], initials["I20"], initials["I30"], initials["R0"]]
 
         if method == "runge_kutta":
@@ -303,6 +313,7 @@ class EpidemicApp:
         self.root.geometry("1200x800")
         self.root.minsize(1000, 700)
         
+        # Настройка стиля
         self.style = ttk.Style()
         self.style.configure('TFrame', background='#f0f0f0')
         self.style.configure('TLabel', background='#f0f0f0', font=('Arial', 10))
@@ -320,57 +331,74 @@ class EpidemicApp:
         self.set_default_values()
 
     def load_country_population(self):
+        """Загружает данные о популяции стран из файла country_pop.txt"""
         try:
             with open("country_pop.txt", "r", encoding="utf-8") as file:
                 for line in file:
                     line = line.strip()
                     if line and ":" in line:
+                        # Разделяем строку на название страны и популяцию
                         country, pop = line.split(":", 1)
                         country = country.strip().strip('"')
+                        
+                        # Обрабатываем популяцию: удаляем подчеркивания и преобразуем в число
                         pop = pop.strip().strip(",")
                         pop = pop.replace("_", "")
+                        
                         try:
                             self.country_population[country] = int(pop)
                         except ValueError:
                             print(f"Ошибка преобразования популяции для страны {country}: {pop}")
+                            
             print(f"Загружены данные по {len(self.country_population)} странам")
+            
         except FileNotFoundError:
             print("Файл country_pop.txt не найден. Данные о популяции не загружены.")
         except Exception as e:
             print(f"Ошибка при загрузке данных о популяции: {str(e)}")
 
     def validate_sum(self, entries_dict, max_sum=1.0):
+        """Проверяет, что сумма значений не превышает max_sum"""
         try:
             total = sum(float(entry.get()) for entry in entries_dict.values() if entry.get())
-            return True
+            return True  # Всегда возвращаем True для параметров
         except ValueError:
             return False
 
     def create_widgets(self):
+        """создание основного интерфейса"""
+        # Главный контейнер с разделением на левую и правую части
         main_paned = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
         main_paned.pack(fill=tk.BOTH, expand=True)
 
+        # Левая панель (управление)
         control_frame = ttk.Frame(main_paned, width=350, relief=tk.RIDGE, padding=10)
         main_paned.add(control_frame, weight=0)
 
+        # Правая панель (графики)
         graph_frame = ttk.Frame(main_paned)
         main_paned.add(graph_frame, weight=1)
 
+        # Создаем Notebook для вкладок в левой панели
         control_notebook = ttk.Notebook(control_frame)
         control_notebook.pack(fill=tk.BOTH, expand=True)
 
+        # Вкладка 1: Выбор моделей
         models_tab = ttk.Frame(control_notebook)
         control_notebook.add(models_tab, text="Модели")
         self.create_models_tab(models_tab)
 
+        # Вкладка 2: Параметры
         params_tab = ttk.Frame(control_notebook)
         control_notebook.add(params_tab, text="Параметры")
         self.create_params_tab(params_tab)
 
+        # Вкладка 3: Данные
         data_tab = ttk.Frame(control_notebook)
         control_notebook.add(data_tab, text="Данные")
         self.create_data_tab(data_tab)
 
+        # Создаем графики в правой панели
         self.create_graphs(graph_frame)
 
     def create_model_params_tab(self, model_code):
@@ -378,15 +406,19 @@ class EpidemicApp:
 
         validate_num = self.root.register(self.create_validate_func(0, 1))
 
+        # Параметры модели
         param_group = ttk.LabelFrame(frame, text="Параметры модели", padding=10)
         param_group.pack(fill=tk.X, pady=5)
 
+        # Начальные значения
         init_group = ttk.LabelFrame(frame, text="Начальные значения", padding=10)
         init_group.pack(fill=tk.X, pady=5)
 
+        # Словари для хранения Entry
         param_entries = {}
         init_entries = {}
 
+        # Список параметров по моделям
         param_definitions = {
             "SI": [("beta", "β")],
             "SIR": [("beta", "β"), ("gamma", "γ")],
@@ -435,6 +467,7 @@ class EpidemicApp:
         for entry in init_entries.values():
             entry.bind("<FocusOut>", on_entry_change)
 
+        # Сохраняем
         self.model_param_tabs[model_code] = {
             "frame": frame,
             "param_entries": param_entries,
@@ -442,25 +475,27 @@ class EpidemicApp:
         }
         self.params_notebook.add(frame, text=model_code)
 
+        # Установка значений по умолчанию для параметров
         default_params = {
-            "beta": "0.35",
-            "gamma": "0.15",
-            "delta": "0.02",
-            "sigma": "0.25",
-            "mu": "0.03",
-            "k1": "0.35",
-            "k2": "0.25",
-            "k3": "0.15"
+            "beta": "0.35",    # Базовая скорость заражения (увеличено для наглядности)
+            "gamma": "0.15",   # Скорость выздоровления
+            "delta": "0.02",   # Скорость потери иммунитета (SIRS) или изоляции (SIQR)
+            "sigma": "0.25",   # Скорость перехода из латентной стадии в инфекционную (SEIR)
+            "mu": "0.03",      # Скорость выхода из изоляции (SIQR) или смертности (MSEIR)
+            "k1": "0.35",      # Скорость перехода I1->I2 (M-модель)
+            "k2": "0.25",      # Скорость перехода I2->I3 (M-модель)
+            "k3": "0.15"       # Скорость перехода I3->R (M-модель)
         }
         
         for param, value in default_params.items():
             if param in param_entries:
                 param_entries[param].insert(0, value)
 
+        # Установка значений по умолчанию для начальных условий
         model_default_inits = {
             "SI": {
-                "S0": "0.95",
-                "I0": "0.05"
+                "S0": "0.95",  # 95% восприимчивых
+                "I0": "0.05"   # 5% инфицированных
             },
             "SIR": {
                 "S0": "0.95",
@@ -500,11 +535,14 @@ class EpidemicApp:
             }
         }
 
+        # Убедимся, что сумма начальных значений не превышает 1
         for init, value in model_default_inits.get(model_code, {}).items():
             if init in init_entries:
                 init_entries[init].insert(0, value)
 
     def create_models_tab(self, parent):
+        """вкладка выбора моделей"""
+        # Группа выбора моделей
         models_group = ttk.LabelFrame(parent, text="Выберите модели (макс. 4)", padding=10)
         models_group.pack(fill=tk.BOTH, pady=5)
 
@@ -526,6 +564,7 @@ class EpidemicApp:
             cb.pack(anchor='w', padx=5, pady=2)
             self.model_vars[model_code] = var
 
+        # Группа метода решения
         method_group = ttk.LabelFrame(parent, text="Метод решения", padding=10)
         method_group.pack(fill=tk.BOTH, pady=5)
         
@@ -535,13 +574,16 @@ class EpidemicApp:
         ttk.Radiobutton(method_group, text="Метод Эйлера", 
                        variable=self.method_var, value="euler").pack(anchor='w', padx=5, pady=2)
 
+        # Кнопка запуска
         ttk.Button(parent, text="Запустить моделирование", 
                   command=self.run_simulation).pack(fill=tk.X, pady=10)
         
+        # Кнопка справки по моделям
         ttk.Button(parent, text="Справка по моделям", 
                    command=self.open_model_docs).pack(fill=tk.X, pady=5)
     
     def create_params_tab(self, parent):
+        """вкладка параметров с динамическими вкладками под каждую модель"""
         canvas = tk.Canvas(parent)
         scrollbar = ttk.Scrollbar(parent, orient="vertical", command=canvas.yview)
         scrollable_frame = ttk.Frame(canvas)
@@ -559,10 +601,12 @@ class EpidemicApp:
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
 
+        # Заменяем старую реализацию: создаём notebook
         self.params_notebook = ttk.Notebook(scrollable_frame)
         self.params_notebook.pack(fill=tk.BOTH, expand=True)
         self.model_param_tabs = {}
 
+        # Временной диапазон — общий, можно оставить
         time_group = ttk.LabelFrame(scrollable_frame, text="Временной диапазон", padding=10)
         time_group.pack(fill=tk.X, pady=5)
 
@@ -575,12 +619,15 @@ class EpidemicApp:
         self.end_entry.pack(fill=tk.X)
 
     def create_data_tab(self, parent):
+        """вкладка для загрузки и экспорта данных"""
+        # Группа загрузки данных
         load_group = ttk.LabelFrame(parent, text="Загрузка данных", padding=10)
         load_group.pack(fill=tk.BOTH, pady=5, expand=True)
             
         ttk.Button(load_group, text="Загрузить данные из CSV", 
                 command=self.load_csv_data).pack(fill=tk.X, pady=5)
 
+        # Группа экспорта результатов
         export_group = ttk.LabelFrame(parent, text="Экспорт результатов", padding=10)
         export_group.pack(fill=tk.BOTH, pady=5)
             
@@ -588,6 +635,8 @@ class EpidemicApp:
                 command=self.export_results).pack(fill=tk.X, pady=5)
         
     def create_graphs(self, parent):
+        """настройка графиков для отображения результатов"""
+        # Создаем 4 графика в сетке 2x2
         self.model.axes = []
         self.model.canvases = []
         self.model.figs = []
@@ -596,14 +645,17 @@ class EpidemicApp:
             fig = plt.Figure(figsize=(6, 4), dpi=100)
             ax = fig.add_subplot(111)
             
+            # Настройка внешнего вида графика
             ax.grid(True, linestyle='--', alpha=0.7)
             ax.set_facecolor('#f8f8f8')
             
+            # Создаем холст для графика
             canvas = FigureCanvasTkAgg(fig, master=parent)
             canvas_widget = canvas.get_tk_widget()
             canvas_widget.grid(row=i//2, column=i%2, padx=5, pady=5, sticky='nsew')
             canvas_widget.config(borderwidth=2, relief=tk.GROOVE)
             
+            # Настройка растягивания
             parent.grid_rowconfigure(i//2, weight=1)
             parent.grid_columnconfigure(i%2, weight=1)
             
@@ -612,6 +664,7 @@ class EpidemicApp:
             self.model.canvases.append(canvas)
 
     def create_validate_func(self, min_val, max_val):
+        """создание функции валидации ввода"""
         def validate(value):
             if value == "":
                 return True
@@ -623,6 +676,9 @@ class EpidemicApp:
         return validate
     
     def set_default_values(self):
+        """установка значений по умолчанию"""
+        
+        # Установка дат по умолчанию
         today = datetime.now()
         self.start_entry.set_date(today)
         self.end_entry.set_date(today + timedelta(days=100))
@@ -638,17 +694,20 @@ class EpidemicApp:
                     break
             return
 
+        # Удаление вкладок, которых больше нет
         for code in list(self.model_param_tabs):
             if code not in selected_models:
                 tab = self.model_param_tabs[code]["frame"]
                 self.params_notebook.forget(tab)
                 del self.model_param_tabs[code]
 
+        # Добавление новых вкладок
         for code in selected_models:
             if code not in self.model_param_tabs:
                 self.create_model_params_tab(code)
     
     def run_simulation(self):
+        """запуск моделирования"""
         selected_models = [name for name, var in self.model_vars.items() if var.get()]
         if not selected_models:
             messagebox.showwarning("Ошибка", "Выберите хотя бы одну модель")
@@ -715,6 +774,7 @@ class EpidemicApp:
 
     
     def load_csv_data(self):
+        """загрузка данных из CSV"""
         path = filedialog.askopenfilename(filetypes=[("CSV files", "*.csv")])
         if not path:
             return
@@ -725,16 +785,20 @@ class EpidemicApp:
             df.sort_values("Date", inplace=True)
             self.csv_data = df
 
+            # Получаем уникальные страны
             countries = sorted(df["Country/Region"].dropna().unique())
             
+            # Создаем окно выбора страны
             self.country_selection = tk.Toplevel(self.root)
             self.country_selection.title("Выбор страны и дат")
             self.country_selection.geometry("400x300")
 
+            # Выбор страны
             ttk.Label(self.country_selection, text="Выберите страну:").pack(pady=(10, 5))
             self.country_cb = ttk.Combobox(self.country_selection, values=countries, state="readonly")
             self.country_cb.pack(pady=5)
 
+            # Выбор диапазона дат для начальных данных
             ttk.Label(self.country_selection, text="Выберите диапазон дат для начальных данных:").pack(pady=(10, 5))
             
             date_frame = ttk.Frame(self.country_selection)
@@ -748,23 +812,28 @@ class EpidemicApp:
             self.data_end_entry = DateEntry(date_frame, date_pattern='dd.mm.yyyy')
             self.data_end_entry.pack(side=tk.LEFT, padx=5)
 
+            # Установка минимальной и максимальной даты из данных
             min_date = df["Date"].min().to_pydatetime()
             max_date = df["Date"].max().to_pydatetime()
             self.data_start_entry.set_date(min_date)
             self.data_end_entry.set_date(max_date)
 
+            # Кнопка загрузки
             ttk.Button(self.country_selection, text="Загрузить данные", 
                       command=self.process_csv_data).pack(pady=10)
         except Exception as e:
             messagebox.showerror("Ошибка", f"Не удалось загрузить файл: {str(e)}")
     
     def process_csv_data(self):
+        """обработка загруженных данных"""
         country = self.country_cb.get()
         if not country:
             messagebox.showwarning("Ошибка", "Выберите страну")
             return
 
+        # --- ОЦЕНКА НАЧАЛЬНЫХ УСЛОВИЙ ---
         try:
+            # Получаем выбранные даты
             start_date = self.data_start_entry.get_date()
             end_date = self.data_end_entry.get_date()
             
@@ -772,6 +841,7 @@ class EpidemicApp:
                 messagebox.showerror("Ошибка", "Начальная дата не может быть позже конечной")
                 return
 
+            # Фильтруем данные по стране и дате
             df_country = self.csv_data[
                 (self.csv_data["Country/Region"] == country) &
                 (self.csv_data["Date"] >= pd.to_datetime(start_date)) &
@@ -782,17 +852,19 @@ class EpidemicApp:
                 messagebox.showerror("Ошибка", "Нет данных для выбранного диапазона дат")
                 return
 
+            # Берем последние значения в выбранном диапазоне как начальные
             latest = df_country.iloc[-1]
             country = self.country_cb.get()
-            total_population = self.country_population.get(country, 1)
+            total_population = self.country_population.get(country, 1)  # Используйте 1, если страна не найдена
 
             if total_population <= 0:
-                total_population = 1
+                total_population = 1  # Во избежание деления на 0
 
             S0 = (total_population - latest["Confirmed"] - latest["Recovered"] - latest["Deaths"]) / total_population
             I0 = latest["Confirmed"] / total_population
-            R0 = (latest["Recovered"] + latest["Deaths"]) / total_population
+            R0 = (latest["Recovered"] + latest["Deaths"]) / total_population  # Можно учитывать Deaths как часть R
 
+            # Обновление начальных значений в основном интерфейсе
             for tab in self.model_param_tabs.values():
                 init_entries = tab["init_entries"]
                 for key in ("S0", "I0", "R0"):
@@ -806,6 +878,7 @@ class EpidemicApp:
                 if "R0" in init_entries:
                     init_entries["R0"].insert(0, f"{R0:.4f}")
 
+            # Устанавливаем даты моделирования (по умолчанию продолжаем после выбранного диапазона)
             self.start_entry.set_date(end_date)
             self.end_entry.set_date(end_date + timedelta(days=100))
             
@@ -814,6 +887,9 @@ class EpidemicApp:
         except Exception as e:
             messagebox.showerror("Ошибка", f"Не удалось обработать данные: {str(e)}")
 
+        # --- ОЦЕНКА ПАРАМЕТРОВ ---
+        # γ = dR / I, только для I > 1e-6
+        # β = (dI + γ·I) / (S·I), только если S·I > 1e-6
         try:
             df_country["Infected"] = df_country["Confirmed"] - df_country["Recovered"] - df_country["Deaths"]
             df_country["Removed"] = df_country["Recovered"] + df_country["Deaths"]
@@ -848,6 +924,7 @@ class EpidemicApp:
                     if np.isfinite(beta_i):
                         beta_list.append(beta_i)
 
+            # Средние значения
             gamma = np.clip(np.mean(gamma_list), 0.01, 1.0) if gamma_list else 0.1
             beta = np.clip(np.mean(beta_list), 0.01, 1.0) if beta_list else 0.3
 
@@ -863,6 +940,7 @@ class EpidemicApp:
             print("Не удалось вычислить параметры:", e)
     
     def export_results(self):
+        """экспорт результатов в ZIP-архив"""
         if not self.result_data:
             messagebox.showwarning("Нет данных", "Сначала выполните моделирование")
             return
@@ -882,10 +960,12 @@ class EpidemicApp:
                 for model_name, df in self.result_data.items():
                     excel_buffer = BytesIO()
                     with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
+                        # Получаем параметры и начальные значения для текущей модели
                         model_tab = self.model_param_tabs.get(model_name)
                         if not model_tab:
                             continue
                         
+                        # Лист 1: Начальные данные
                         initials_data = {}
                         for key, entry in model_tab["init_entries"].items():
                             initials_data[key] = entry.get()
@@ -904,6 +984,7 @@ class EpidemicApp:
                         })
                         initials_df.to_excel(writer, sheet_name='Начальные данные', index=False)
                         
+                        # Лист 2: Параметры модели
                         params_data = {}
                         for key, entry in model_tab["param_entries"].items():
                             params_data[key] = entry.get()
@@ -922,6 +1003,7 @@ class EpidemicApp:
                         })
                         params_df.to_excel(writer, sheet_name='Параметры', index=False)
                         
+                        # Лист 3: Решение
                         method_info = pd.DataFrame({
                             'Информация': ['Метод решения:', 'Выбранная модель:'],
                             'Значение': [
@@ -936,14 +1018,16 @@ class EpidemicApp:
                         worksheet = writer.sheets['Решение']
                         worksheet.write(3, 0, 'Дни')
                         
+                        # Лист 4: График
                         graph_sheet = writer.book.add_worksheet('График')
                         chart = writer.book.add_chart({'type': 'line'})
                         
                         max_row = len(df) + 4
                         categories = f"='Решение'!$A$5:$A${max_row}"
                         
+                        # Исправлено: начинаем с 66 (B) и увеличиваем на 1 для каждой колонки
                         for i, col in enumerate(df.columns, 1):
-                            col_letter = chr(65 + i)
+                            col_letter = chr(65 + i)  # 65 = 'A', 66 = 'B', и т.д.
                             chart.add_series({
                                 'name': f"='Решение'!${col_letter}$4",
                                 'categories': categories,
@@ -965,6 +1049,7 @@ class EpidemicApp:
             messagebox.showerror("Ошибка", f"Не удалось экспортировать данные: {str(e)}")
 
     def open_model_docs(self):
+        """Открывает окно со справкой по моделям"""
         doc_window = tk.Toplevel(self.root)
         doc_window.title("Справка по моделям")
         doc_window.geometry("600x500")
