@@ -320,25 +320,118 @@ class EpidemicApp:
         self.set_default_values()
 
     def load_country_population(self):
-        try:
-            with open("country_pop.txt", "r", encoding="utf-8") as file:
-                for line in file:
-                    line = line.strip()
-                    if line and ":" in line:
-                        country, pop = line.split(":", 1)
-                        country = country.strip().strip('"')
-                        pop = pop.strip().strip(",")
-                        pop = pop.replace("_", "")
-                        try:
-                            self.country_population[country] = int(pop)
-                        except ValueError:
-                            print(f"Ошибка преобразования популяции для страны {country}: {pop}")
-            print(f"Загружены данные по {len(self.country_population)} странам")
-        except FileNotFoundError:
-            print("Файл country_pop.txt не найден. Данные о популяции не загружены.")
-        except Exception as e:
-            print(f"Ошибка при загрузке данных о популяции: {str(e)}")
-
+        self.country_population = {
+            "Russia": 146000000,
+            "Germany": 83000000,
+            "France": 68000000,
+            "United Kingdom": 67000000,
+            "Italy": 59000000,
+            "Spain": 47000000,
+            "Poland": 38000000,
+            "Netherlands": 17000000,
+            "Belgium": 11000000,
+            "Sweden": 10000000,
+            "Portugal": 10000000,
+            "Greece": 10000000,
+            "Switzerland": 8000000,
+            "Austria": 8000000,
+            "Hungary": 9000000,
+            "Czech Republic": 10000000,
+            "Romania": 19000000,
+            "Denmark": 5000000,
+            "Finland": 5000000,
+            "Norway": 5000000,
+            "Ireland": 5000000,
+            "China": 1412000000,
+            "India": 1408000000,
+            "Indonesia": 275000000,
+            "Pakistan": 235000000,
+            "Bangladesh": 171000000,
+            "Japan": 125000000,
+            "Philippines": 115000000,
+            "Vietnam": 98000000,
+            "Turkey": 85000000,
+            "Iran": 87000000,
+            "Thailand": 70000000,
+            "Myanmar": 54000000,
+            "South Korea": 51000000,
+            "Iraq": 43000000,
+            "Afghanistan": 41000000,
+            "Saudi Arabia": 36000000,
+            "Malaysia": 33000000,
+            "Uzbekistan": 35000000,
+            "Nepal": 30000000,
+            "Sri Lanka": 22000000,
+            "Kazakhstan": 19000000,
+            "Israel": 9000000,
+            "Hong Kong": 7000000,
+            "Singapore": 5000000,
+            "Nigeria": 218000000,
+            "Ethiopia": 123000000,
+            "Egypt": 109000000,
+            "DR Congo": 97000000,
+            "South Africa": 60000000,
+            "Tanzania": 63000000,
+            "Kenya": 55000000,
+            "Algeria": 45000000,
+            "Morocco": 37000000,
+            "Angola": 35000000,
+            "Ghana": 32000000,
+            "Mozambique": 32000000,
+            "Madagascar": 29000000,
+            "Cameroon": 27000000,
+            "Ivory Coast": 27000000,
+            "Niger": 25000000,
+            "Burkina Faso": 22000000,
+            "Mali": 21000000,
+            "Malawi": 20000000,
+            "Zambia": 19000000,
+            "Senegal": 17000000,
+            "Chad": 17000000,
+            "Somalia": 17000000,
+            "Zimbabwe": 16000000,
+            "US": 335000000,
+            "Brazil": 215000000,
+            "Mexico": 128000000,
+            "Colombia": 52000000,
+            "Argentina": 46000000,
+            "Canada": 38000000,
+            "Peru": 34000000,
+            "Venezuela": 28000000,
+            "Chile": 19000000,
+            "Ecuador": 18000000,
+            "Guatemala": 17000000,
+            "Cuba": 11000000,
+            "Dominican Republic": 11000000,
+            "Honduras": 10000000,
+            "Bolivia": 12000000,
+            "El Salvador": 6000000,
+            "Paraguay": 7000000,
+            "Nicaragua": 6000000,
+            "Costa Rica": 5000000,
+            "Panama": 4000000,
+            "Uruguay": 3000000,
+            "Australia": 26000000,
+            "Papua New Guinea": 9000000,
+            "New Zealand": 5000000,
+            "Fiji": 900000,
+            "Yemen": 32000000,
+            "United Arab Emirates": 10000000,
+            "Jordan": 11000000,
+            "Azerbaijan": 10000000,
+            "Lebanon": 6000000,
+            "Oman": 5000000,
+            "Qatar": 3000000,
+            "Kuwait": 4000000,
+            "Taiwan": 23000000,
+            "North Korea": 26000000,
+            "South Sudan": 11000000,
+            "Eritrea": 6000000,
+            "Tajikistan": 10000000,
+            "Kyrgyzstan": 7000000,
+            "Turkmenistan": 6000000
+        }
+        
     def validate_sum(self, entries_dict, max_sum=1.0):
         try:
             total = sum(float(entry.get()) for entry in entries_dict.values() if entry.get())
