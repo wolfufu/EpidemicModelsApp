@@ -313,13 +313,6 @@ class EpidemicApp:
         self.model = EpidemicModels()
         self.result_data = {}
 
-        self.country_population = {}
-        self.load_country_population()
-
-        self.create_widgets()
-        self.set_default_values()
-
-    def load_country_population(self):
         self.country_population = {
             "Russia": 146000000,
             "Germany": 83000000,
@@ -431,7 +424,10 @@ class EpidemicApp:
             "Kyrgyzstan": 7000000,
             "Turkmenistan": 6000000
         }
-        
+
+        self.create_widgets()
+        self.set_default_values()
+
     def validate_sum(self, entries_dict, max_sum=1.0):
         try:
             total = sum(float(entry.get()) for entry in entries_dict.values() if entry.get())
